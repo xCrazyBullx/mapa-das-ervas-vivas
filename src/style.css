@@ -189,3 +189,6 @@
 .popup-report-action{margin-left:6px;background:#f8eeee;color:#8e4141;border:1px solid #efdada;padding:7px 10px;border-radius:6px;cursor:pointer;font:600 11px 'DM Sans'}
 .popup-report-action:hover{background:#f3e5e5}
 .report-form-plant{display:block;padding:10px 12px;border-radius:8px;background:#f3f6f0;color:#36513b;font-size:13px}
+
+.location-nearby-note{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 14px;padding:10px 12px;border:1px solid #e2eade;border-radius:9px;background:#f7faf5;color:#526653;font-size:12px}.location-nearby-note button{border:0;background:transparent;color:#28523b;font:700 11px 'DM Sans';text-decoration:underline;cursor:pointer;margin-left:auto}
+@media(max-width:700px){.location-nearby-note{font-size:11px;align-items:flex-start}.location-nearby-note button{margin-left:0}}
