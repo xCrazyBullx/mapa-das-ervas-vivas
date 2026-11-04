@@ -4,11 +4,19 @@ import L from 'leaflet'
 import { supabase, supabaseReady } from './supabase'
 import { Leaf, MapPin, Plus, Search, LogIn, LogOut, ShieldCheck, Camera, LocateFixed, AlertCircle, Chrome, Bell, Check } from 'lucide-react'
 
-const markerIcon = new L.Icon({
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-  iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41],
+const markerIcon = L.divIcon({
+  className: 'plant-map-marker',
+  html: '<span class="plant-map-marker-pin"><span></span></span>',
+  iconSize: [30, 38],
+  iconAnchor: [15, 34],
+  popupAnchor: [0, -34],
+})
+const visitorIcon = L.divIcon({
+  className: 'visitor-map-marker',
+  html: '<span class="visitor-map-marker-pulse"><span></span></span>',
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
+  popupAnchor: [0, -12],
 })
 
 function SelectLocation({ onSelect }) {
@@ -499,7 +507,7 @@ export default function App() {
               <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
               <SelectLocation onSelect={handleMapSelection}/><RecenterMap position={selected || visitorLocation}/>
               {visiblePlants.map(p => <Marker key={p.id} position={[p.latitude, p.longitude]} icon={markerIcon}><Popup><strong>{p.common_name}</strong><p>{p.description || 'Sem descrição.'}</p><small>{p.scientific_name || ''}</small><p><button className="popup-action" onClick={() => confirmPlant(p)}>Confirmar presença</button> <button className="popup-report-action" onClick={() => { if (!user) { setAuthMode('signin'); setNotice('Entre na sua conta para denunciar uma publicação.') } else { setReportTarget(p); setReportDetails('') } }}>Denunciar</button></p><a target="_blank" rel="noreferrer" href={'https://www.google.com/maps?q=' + p.latitude + ',' + p.longitude}>Abrir no Google Maps</a></Popup></Marker>)}
-              {visitorLocation && <Marker position={[visitorLocation.lat, visitorLocation.lng]}><Popup>Você está aqui (localização visível apenas neste navegador)</Popup></Marker>}
+              {visitorLocation && <Marker position={[visitorLocation.lat, visitorLocation.lng]} icon={visitorIcon}><Popup>Você está aqui (localização visível apenas neste navegador)</Popup></Marker>}
               {selected && <Marker position={[selected.lat, selected.lng]} icon={markerIcon}><Popup>Local escolhido para novo cadastro</Popup></Marker>}
             </MapContainer>
             <div className="map-hint"><MapPin size={15}/> {selectingLocation ? 'Toque no ponto exato da planta para continuar' : 'Use o mapa para explorar e localizar plantas'}</div>
