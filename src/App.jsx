@@ -40,6 +40,9 @@ export default function App() {
   const [recentAudit, setRecentAudit] = useState([])
   const [collaborators, setCollaborators] = useState([])
   const [mapHealth, setMapHealth] = useState({ invalid: 0, oldPending: 0, possibleDuplicates: 0 })
+  const [healthIssues, setHealthIssues] = useState([])
+  const [auditFilter, setAuditFilter] = useState('all')
+  const [auditSearch, setAuditSearch] = useState('')
   const [adminLoading, setAdminLoading] = useState(false)
   const [moderationNotes, setModerationNotes] = useState({})
   const [moderatingId, setModeratingId] = useState(null)
@@ -138,14 +141,22 @@ export default function App() {
       const rows = allPlants ?? []
       const invalid = rows.filter(p => p.latitude == null || p.longitude == null || Math.abs(Number(p.latitude)) > 90 || Math.abs(Number(p.longitude)) > 180).length
       const oldPending = rows.filter(p => p.status === 'pending' && Date.now() - new Date(p.created_at).getTime() > 30 * 86400000).length
-      const seen = new Set()
+      const seen = new Map()
+      const issues = []
       let possibleDuplicates = 0
       for (const plant of rows) {
-        if (plant.latitude == null || plant.longitude == null) continue
+        if (plant.latitude == null || plant.longitude == null || Math.abs(Number(plant.latitude)) > 90 || Math.abs(Number(plant.longitude)) > 180) {
+          issues.push({ id: 'invalid-' + plant.id, type: 'invalid', plant, message: 'Coordenada ausente ou fora da faixa válida' })
+          continue
+        }
+        if (plant.status === 'pending' && Date.now() - new Date(plant.created_at).getTime() > 30 * 86400000) issues.push({ id: 'old-' + plant.id, type: 'old', plant, message: 'Pendente há mais de 30 dias' })
         const key = (plant.common_name || '').trim().toLocaleLowerCase('pt-BR') + ':' + Number(plant.latitude).toFixed(3) + ':' + Number(plant.longitude).toFixed(3)
-        if (seen.has(key)) possibleDuplicates++
-        else seen.add(key)
+        if (seen.has(key)) {
+          possibleDuplicates++
+          issues.push({ id: 'duplicate-' + plant.id, type: 'duplicate', plant, other: seen.get(key), message: 'Possível duplicidade de nome e localização' })
+        } else seen.set(key, plant)
       }
+      setHealthIssues(issues)
       setMapHealth({ invalid, oldPending, possibleDuplicates })
     }
     const { data, error } = await supabase.from('plants').select('*').eq('status', 'pending').order('created_at', { ascending: true })
@@ -325,6 +336,7 @@ export default function App() {
   }
 
   const visiblePlants = plants.filter(p => [p.common_name, p.scientific_name, p.description].filter(Boolean).join(' ').toLowerCase().includes(search.toLowerCase()) && (selectedCategory === 'todas' || p.category === selectedCategory))
+  const filteredAudit = recentAudit.filter(log => (auditFilter === 'all' || log.action === auditFilter) && (log.plantName + ' ' + log.actorName + ' ' + (log.new_data?.moderation_note || '')).toLowerCase().includes(auditSearch.toLowerCase()))
   const categories = [{ value: 'todas', label: 'Todas' }, { value: 'arvore', label: 'Árvores' }, { value: 'erva', label: 'Ervas' }, { value: 'flor', label: 'Flores' }, { value: 'frutifera', label: 'Frutíferas' }, { value: 'arbusto', label: 'Arbustos' }, { value: 'outra', label: 'Outras' }]
 
   return (
@@ -355,8 +367,8 @@ export default function App() {
         {showAdmin && ['admin', 'moderator'].includes(userRole) && <section className="admin-panel">
           <div className="admin-heading"><div><span className="eyebrow">ÁREA RESTRITA</span><h2>Painel de moderação</h2><p>Revise os registros enviados pela comunidade antes de publicá-los.</p></div><button className="ghost" onClick={loadPendingPlants} disabled={adminLoading}>Atualizar fila</button></div>
           {userRole === 'admin' && <><section className="admin-subsection"><h3>Colaboradores</h3><p>Gerencie os níveis de acesso. Seu próprio papel de administrador fica protegido.</p>{collaborators.length === 0 ? <p className="admin-empty">Nenhum perfil encontrado.</p> : collaborators.map(person => <div className="collaborator-row" key={person.id}><div><strong>{person.display_name || 'Colaborador'}</strong><small>{person.id === user.id ? 'Sua conta' : 'Conta cadastrada'}</small></div><select aria-label={'Papel de ' + (person.display_name || 'colaborador')} value={person.role} disabled={person.id === user.id} onChange={e => changeCollaboratorRole(person, e.target.value)}><option value="contributor">Colaborador</option><option value="moderator">Moderador</option><option value="admin">Administrador</option></select></div>)}</section>
-          <section className="admin-subsection"><h3>Saúde do mapa</h3><div className="health-grid"><div><strong>{mapHealth.invalid}</strong><span>Coordenadas ausentes ou inválidas</span></div><div><strong>{mapHealth.possibleDuplicates}</strong><span>Possíveis duplicidades</span></div><div><strong>{mapHealth.oldPending}</strong><span>Pendentes há mais de 30 dias</span></div></div><p className="health-note">As duplicidades são apenas sugestões automáticas por nome e proximidade; precisam de conferência humana.</p></section></>}
-          <section className="admin-subsection"><h3>Histórico recente</h3>{recentAudit.length === 0 ? <p className="admin-empty">Ainda não há movimentações registradas.</p> : recentAudit.map(log => <div className="recent-audit-row" key={log.id}><div><strong>{log.plantName}</strong><span>{log.action === 'created' ? 'Cadastro enviado' : 'Registro atualizado'} · {log.actorName}</span>{log.new_data?.moderation_note && <small>Observação: {log.new_data.moderation_note}</small>}</div><time>{new Date(log.created_at).toLocaleString('pt-BR')}</time></div>)}</section>
+          <section className="admin-subsection"><h3>Saúde do mapa</h3><div className="health-grid"><div><strong>{mapHealth.invalid}</strong><span>Coordenadas ausentes ou inválidas</span></div><div><strong>{mapHealth.possibleDuplicates}</strong><span>Possíveis duplicidades</span></div><div><strong>{mapHealth.oldPending}</strong><span>Pendentes há mais de 30 dias</span></div></div><p className="health-note">As duplicidades são sugestões automáticas por nome e proximidade; confira antes de alterar qualquer registro.</p>{healthIssues.length > 0 && <div className="health-issues"><strong>Ocorrências para revisar</strong>{healthIssues.slice(0, 30).map(issue => <div className="health-issue" key={issue.id}><div><b>{issue.plant.common_name || 'Planta sem nome'}</b><span>{issue.message}{issue.other ? ' · semelhante a ' + issue.other.common_name : ''}</span></div>{issue.plant.latitude != null && issue.plant.longitude != null && Math.abs(Number(issue.plant.latitude)) <= 90 && Math.abs(Number(issue.plant.longitude)) <= 180 && <a href={'https://www.google.com/maps?q=' + issue.plant.latitude + ',' + issue.plant.longitude} target="_blank" rel="noreferrer">Ver ponto</a>}</div>)}</div>}</section></>}
+          <section className="admin-subsection"><h3>Histórico recente</h3><div className="audit-filters"><input value={auditSearch} onChange={e => setAuditSearch(e.target.value)} placeholder="Buscar planta, colaborador ou observação"/><select value={auditFilter} onChange={e => setAuditFilter(e.target.value)}><option value="all">Todas as ações</option><option value="created">Cadastros</option><option value="updated">Atualizações</option></select></div>{filteredAudit.length === 0 ? <p className="admin-empty">Nenhuma movimentação corresponde ao filtro.</p> : filteredAudit.map(log => <div className="recent-audit-row" key={log.id}><div><strong>{log.plantName}</strong><span>{log.action === 'created' ? 'Cadastro enviado' : log.action === 'updated' ? 'Registro atualizado' : log.action} · {log.actorName}</span>{log.new_data?.moderation_note && <small>Observação: {log.new_data.moderation_note}</small>}<details className="audit-detail"><summary>Ver alterações</summary><pre>{JSON.stringify({ antes: log.old_data, depois: log.new_data }, null, 2)}</pre></details></div><time>{new Date(log.created_at).toLocaleString('pt-BR')}</time></div>)}</section>
           <div className="admin-count">{pendingPlants.length} publicação(ões) aguardando análise</div>
           {adminLoading ? <p className="admin-empty">Carregando publicações...</p> : pendingPlants.length === 0 ? <p className="admin-empty">Nenhuma publicação pendente no momento.</p> : pendingPlants.map(plant => <article className="pending-card" key={plant.id}>
             <div className="pending-title"><div><h3>{plant.common_name}</h3><span>{plant.scientific_name || 'Nome científico não informado'} · {plant.category}</span></div><span className="pending-status">Pendente</span></div>
