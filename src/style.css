@@ -125,3 +125,9 @@
 .health-grid span{font-size:10px;line-height:1.4;color:#718071}
 .health-note{margin-top:10px!important}
 @media(max-width:700px){.admin-subsection{padding:12px}.health-grid{grid-template-columns:1fr}.collaborator-row{align-items:flex-start}.collaborator-row select{max-width:130px}}
+
+.recent-audit-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 0;border-top:1px solid #edf0eb}
+.recent-audit-row>div{display:grid;gap:4px;min-width:0}
+.recent-audit-row strong{font-size:12px;color:#435747}
+.recent-audit-row span,.recent-audit-row small,.recent-audit-row time{font-size:10px;color:#829082;line-height:1.4}
+.recent-audit-row time{white-space:nowrap}
