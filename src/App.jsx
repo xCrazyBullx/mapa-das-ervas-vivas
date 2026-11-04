@@ -36,6 +36,7 @@ export default function App() {
   const [pendingPhotos, setPendingPhotos] = useState({})
   const [auditHistory, setAuditHistory] = useState({})
   const [auditNames, setAuditNames] = useState({})
+  const [recentAudit, setRecentAudit] = useState([])
   const [collaborators, setCollaborators] = useState([])
   const [mapHealth, setMapHealth] = useState({ invalid: 0, oldPending: 0, possibleDuplicates: 0 })
   const [adminLoading, setAdminLoading] = useState(false)
@@ -101,6 +102,17 @@ export default function App() {
   async function loadPendingPlants() {
     if (!user || !['admin', 'moderator'].includes(userRole)) return
     setAdminLoading(true)
+    const { data: latestLogs } = await supabase.from('plant_audit_log').select('*').order('created_at', { ascending: false }).limit(40)
+    const historyRows = latestLogs ?? []
+    const historyPlantIds = [...new Set(historyRows.map(log => log.plant_id))]
+    const historyActorIds = [...new Set(historyRows.map(log => log.actor_id).filter(Boolean))]
+    const [{ data: historyPlants }, { data: historyProfiles }] = await Promise.all([
+      historyPlantIds.length ? supabase.from('plants').select('id,common_name').in('id', historyPlantIds) : Promise.resolve({ data: [] }),
+      historyActorIds.length ? supabase.from('profiles').select('id,display_name').in('id', historyActorIds) : Promise.resolve({ data: [] })
+    ])
+    const plantNames = Object.fromEntries((historyPlants ?? []).map(plant => [plant.id, plant.common_name]))
+    const actorNames = Object.fromEntries((historyProfiles ?? []).map(profile => [profile.id, profile.display_name || 'Colaborador']))
+    setRecentAudit(historyRows.map(log => ({ ...log, plantName: plantNames[log.plant_id] || 'Planta removida', actorName: actorNames[log.actor_id] || 'Sistema' })))
     if (userRole === 'admin') {
       const [{ data: people }, { data: allPlants }] = await Promise.all([
         supabase.from('profiles').select('id,display_name,role').order('created_at', { ascending: false }).limit(200),
@@ -327,6 +339,7 @@ export default function App() {
           <div className="admin-heading"><div><span className="eyebrow">ÁREA RESTRITA</span><h2>Painel de moderação</h2><p>Revise os registros enviados pela comunidade antes de publicá-los.</p></div><button className="ghost" onClick={loadPendingPlants} disabled={adminLoading}>Atualizar fila</button></div>
           {userRole === 'admin' && <><section className="admin-subsection"><h3>Colaboradores</h3><p>Gerencie os níveis de acesso. Seu próprio papel de administrador fica protegido.</p>{collaborators.length === 0 ? <p className="admin-empty">Nenhum perfil encontrado.</p> : collaborators.map(person => <div className="collaborator-row" key={person.id}><div><strong>{person.display_name || 'Colaborador'}</strong><small>{person.id === user.id ? 'Sua conta' : 'Conta cadastrada'}</small></div><select aria-label={'Papel de ' + (person.display_name || 'colaborador')} value={person.role} disabled={person.id === user.id} onChange={e => changeCollaboratorRole(person, e.target.value)}><option value="contributor">Colaborador</option><option value="moderator">Moderador</option><option value="admin">Administrador</option></select></div>)}</section>
           <section className="admin-subsection"><h3>Saúde do mapa</h3><div className="health-grid"><div><strong>{mapHealth.invalid}</strong><span>Coordenadas ausentes ou inválidas</span></div><div><strong>{mapHealth.possibleDuplicates}</strong><span>Possíveis duplicidades</span></div><div><strong>{mapHealth.oldPending}</strong><span>Pendentes há mais de 30 dias</span></div></div><p className="health-note">As duplicidades são apenas sugestões automáticas por nome e proximidade; precisam de conferência humana.</p></section></>}
+          <section className="admin-subsection"><h3>Histórico recente</h3>{recentAudit.length === 0 ? <p className="admin-empty">Ainda não há movimentações registradas.</p> : recentAudit.map(log => <div className="recent-audit-row" key={log.id}><div><strong>{log.plantName}</strong><span>{log.action === 'created' ? 'Cadastro enviado' : 'Registro atualizado'} · {log.actorName}</span>{log.new_data?.moderation_note && <small>Observação: {log.new_data.moderation_note}</small>}</div><time>{new Date(log.created_at).toLocaleString('pt-BR')}</time></div>)}</section>
           <div className="admin-count">{pendingPlants.length} publicação(ões) aguardando análise</div>
           {adminLoading ? <p className="admin-empty">Carregando publicações...</p> : pendingPlants.length === 0 ? <p className="admin-empty">Nenhuma publicação pendente no momento.</p> : pendingPlants.map(plant => <article className="pending-card" key={plant.id}>
             <div className="pending-title"><div><h3>{plant.common_name}</h3><span>{plant.scientific_name || 'Nome científico não informado'} · {plant.category}</span></div><span className="pending-status">Pendente</span></div>
