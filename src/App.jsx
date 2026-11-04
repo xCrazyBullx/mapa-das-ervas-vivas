@@ -42,6 +42,10 @@ export default function App() {
   const [reports, setReports] = useState([])
   const [reportNotes, setReportNotes] = useState({})
   const [reviewingReportId, setReviewingReportId] = useState(null)
+  const [reportTarget, setReportTarget] = useState(null)
+  const [reportReason, setReportReason] = useState('informacao incorreta')
+  const [reportDetails, setReportDetails] = useState('')
+  const [submittingReport, setSubmittingReport] = useState(false)
   const [mapHealth, setMapHealth] = useState({ invalid: 0, oldPending: 0, possibleDuplicates: 0 })
   const [healthIssues, setHealthIssues] = useState([])
   const [auditFilter, setAuditFilter] = useState('all')
@@ -206,6 +210,28 @@ export default function App() {
       }
     }
     setAdminLoading(false)
+  }
+
+  async function submitPlantReport(e) {
+    e.preventDefault()
+    if (!user) { setNotice('Entre na sua conta para denunciar uma publicação.'); setReportTarget(null); setAuthMode('signin'); return }
+    if (!reportTarget) return
+    setSubmittingReport(true)
+    const { error } = await supabase.from('plant_reports').insert({
+      plant_id: reportTarget.id,
+      target_type: 'plant',
+      target_id: reportTarget.id,
+      reporter_id: user.id,
+      reason: reportReason,
+      details: reportDetails.trim() || null,
+      status: 'pending'
+    })
+    setSubmittingReport(false)
+    if (error) { setNotice('Não foi possível enviar a denúncia: ' + error.message); return }
+    setReportTarget(null)
+    setReportReason('informacao incorreta')
+    setReportDetails('')
+    setNotice('Denúncia enviada. A equipe de moderação irá analisá-la.')
   }
 
   async function reviewReport(report, status) {
@@ -393,7 +419,7 @@ export default function App() {
 
         {showAdmin && ['admin', 'moderator'].includes(userRole) && <section className="admin-panel">
           <div className="admin-heading"><div><span className="eyebrow">ÁREA RESTRITA</span><h2>Painel de moderação</h2><p>Revise os registros enviados pela comunidade antes de publicá-los.</p></div><button className="ghost" onClick={loadPendingPlants} disabled={adminLoading}>Atualizar fila</button></div>
-          {userRole === 'admin' && <><section className="admin-subsection report-moderation">
+          {['admin', 'moderator'].includes(userRole) && <section className="admin-subsection report-moderation">
 <div className="report-heading"><div><h3>Denúncias da comunidade</h3><p>Área restrita a administradores e moderadores.</p></div><span className="report-pending-count">{reports.filter(report => report.status === "pending").length} pendentes</span></div>
 {reports.length === 0 ? <p className="admin-empty">Nenhuma denúncia registrada.</p> : reports.map(report => <article className={"report-card report-" + report.status} key={report.id}>
 <div className="report-card-top"><strong>{report.target_type === "plant" ? "Denúncia de planta" : report.target_type === "review" ? "Denúncia de avaliação" : "Denúncia de comentário"}</strong><span className={"report-status " + report.status}>{report.status === "pending" ? "Pendente" : report.status === "resolved" ? "Resolvida" : "Arquivada"}</span></div>
@@ -403,8 +429,8 @@ export default function App() {
 {report.resolution_note && <p className="report-resolution">Decisão: {report.resolution_note}</p>}
 {report.status === "pending" && <><label className="report-note-label">Nota interna (opcional)<textarea value={reportNotes[report.id] || ""} onChange={e => setReportNotes(notes => ({ ...notes, [report.id]: e.target.value }))} placeholder="Registre o motivo da decisão..."/></label><div className="report-actions"><button type="button" className="approve-button" disabled={reviewingReportId === report.id} onClick={() => reviewReport(report, "resolved")}>Resolver denúncia</button><button type="button" className="reject-button" disabled={reviewingReportId === report.id} onClick={() => reviewReport(report, "dismissed")}>Arquivar</button></div></>}
 </article>)}
-</section>
-<section className="admin-subsection"><h3>Colaboradores</h3><p>Gerencie os níveis de acesso. Seu próprio papel de administrador fica protegido.</p>{collaborators.length === 0 ? <p className="admin-empty">Nenhum perfil encontrado.</p> : collaborators.map(person => <div className="collaborator-row" key={person.id}><div><strong>{person.display_name || 'Colaborador'}</strong><small>{person.id === user.id ? 'Sua conta' : 'Conta cadastrada'}</small></div><select aria-label={'Papel de ' + (person.display_name || 'colaborador')} value={person.role} disabled={person.id === user.id} onChange={e => changeCollaboratorRole(person, e.target.value)}><option value="contributor">Colaborador</option><option value="moderator">Moderador</option><option value="admin">Administrador</option></select></div>)}</section>
+</section>}
+{userRole === 'admin' && <><section className="admin-subsection"><h3>Colaboradores</h3><p>Gerencie os níveis de acesso. Seu próprio papel de administrador fica protegido.</p>{collaborators.length === 0 ? <p className="admin-empty">Nenhum perfil encontrado.</p> : collaborators.map(person => <div className="collaborator-row" key={person.id}><div><strong>{person.display_name || 'Colaborador'}</strong><small>{person.id === user.id ? 'Sua conta' : 'Conta cadastrada'}</small></div><select aria-label={'Papel de ' + (person.display_name || 'colaborador')} value={person.role} disabled={person.id === user.id} onChange={e => changeCollaboratorRole(person, e.target.value)}><option value="contributor">Colaborador</option><option value="moderator">Moderador</option><option value="admin">Administrador</option></select></div>)}</section>
           <section className="admin-subsection"><h3>Saúde do mapa</h3><div className="health-grid"><div><strong>{mapHealth.invalid}</strong><span>Coordenadas ausentes ou inválidas</span></div><div><strong>{mapHealth.possibleDuplicates}</strong><span>Possíveis duplicidades</span></div><div><strong>{mapHealth.oldPending}</strong><span>Pendentes há mais de 30 dias</span></div></div><p className="health-note">As duplicidades são sugestões automáticas por nome e proximidade; confira antes de alterar qualquer registro.</p>{healthIssues.length > 0 && <div className="health-issues"><strong>Ocorrências para revisar</strong>{healthIssues.slice(0, 30).map(issue => <div className="health-issue" key={issue.id}><div><b>{issue.plant.common_name || 'Planta sem nome'}</b><span>{issue.message}{issue.other ? ' · semelhante a ' + issue.other.common_name : ''}</span></div>{issue.plant.latitude != null && issue.plant.longitude != null && Math.abs(Number(issue.plant.latitude)) <= 90 && Math.abs(Number(issue.plant.longitude)) <= 180 && <a href={'https://www.google.com/maps?q=' + issue.plant.latitude + ',' + issue.plant.longitude} target="_blank" rel="noreferrer">Ver ponto</a>}</div>)}</div>}</section></>}
           <section className="admin-subsection"><h3>Histórico recente</h3><div className="audit-filters"><input value={auditSearch} onChange={e => setAuditSearch(e.target.value)} placeholder="Buscar planta, colaborador ou observação"/><select value={auditFilter} onChange={e => setAuditFilter(e.target.value)}><option value="all">Todas as ações</option><option value="created">Cadastros</option><option value="updated">Atualizações</option></select></div>{filteredAudit.length === 0 ? <p className="admin-empty">Nenhuma movimentação corresponde ao filtro.</p> : filteredAudit.map(log => <div className="recent-audit-row" key={log.id}><div><strong>{log.plantName}</strong><span>{log.action === 'created' ? 'Cadastro enviado' : log.action === 'updated' ? 'Registro atualizado' : log.action} · {log.actorName}</span>{log.new_data?.moderation_note && <small>Observação: {log.new_data.moderation_note}</small>}<details className="audit-detail"><summary>Ver alterações</summary><pre>{JSON.stringify({ antes: log.old_data, depois: log.new_data }, null, 2)}</pre></details></div><time>{new Date(log.created_at).toLocaleString('pt-BR')}</time></div>)}</section>
           <div className="admin-count">{pendingPlants.length} publicação(ões) aguardando análise</div>
@@ -430,7 +456,7 @@ export default function App() {
             <MapContainer center={[-23.3103, -51.1628]} zoom={12} scrollWheelZoom={true} className="map">
               <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
               <SelectLocation onSelect={handleMapSelection}/><RecenterMap position={selected}/>
-              {visiblePlants.map(p => <Marker key={p.id} position={[p.latitude, p.longitude]} icon={markerIcon}><Popup><strong>{p.common_name}</strong><p>{p.description || 'Sem descrição.'}</p><small>{p.scientific_name || ''}</small><p><button className="popup-action" onClick={() => confirmPlant(p)}>Confirmar presença</button></p><a target="_blank" rel="noreferrer" href={'https://www.google.com/maps?q=' + p.latitude + ',' + p.longitude}>Abrir no Google Maps</a></Popup></Marker>)}
+              {visiblePlants.map(p => <Marker key={p.id} position={[p.latitude, p.longitude]} icon={markerIcon}><Popup><strong>{p.common_name}</strong><p>{p.description || 'Sem descrição.'}</p><small>{p.scientific_name || ''}</small><p><button className="popup-action" onClick={() => confirmPlant(p)}>Confirmar presença</button> <button className="popup-report-action" onClick={() => { if (!user) { setAuthMode('signin'); setNotice('Entre na sua conta para denunciar uma publicação.') } else { setReportTarget(p); setReportDetails('') } }}>Denunciar</button></p><a target="_blank" rel="noreferrer" href={'https://www.google.com/maps?q=' + p.latitude + ',' + p.longitude}>Abrir no Google Maps</a></Popup></Marker>)}
               {selected && <Marker position={[selected.lat, selected.lng]} icon={markerIcon}><Popup>Local escolhido para novo cadastro</Popup></Marker>}
             </MapContainer>
             <div className="map-hint"><MapPin size={15}/> {selectingLocation ? 'Toque no ponto exato da planta para continuar' : 'Use o mapa para explorar e localizar plantas'}</div>
@@ -441,6 +467,8 @@ export default function App() {
         <section className="info-strip"><div><LocateFixed/><strong>Localização colaborativa</strong><p>Marque o ponto no mapa ou use sua localização.</p></div><div><Camera/><strong>Fotos e registros</strong><p>Ajude a comunidade a reconhecer cada espécie.</p></div><div><ShieldCheck/><strong>Conteúdo revisado</strong><p>Novos cadastros aguardam aprovação.</p></div></section>
       </main>
       <footer>MAPA DAS ERVAS VIVAS <span>Feito para compartilhar conhecimento e preservar a natureza.</span><small className="app-version">Versão 0.2.0</small></footer>
+
+      {reportTarget && <div className="modal-backdrop" onClick={() => { if (!submittingReport) setReportTarget(null) }}><form className="modal" onSubmit={submitPlantReport} onClick={e => e.stopPropagation()}><button type="button" className="close" onClick={() => setReportTarget(null)} disabled={submittingReport}>×</button><span className="eyebrow">CONTRIBUIÇÃO DA COMUNIDADE</span><h2>Denunciar publicação</h2><p className="form-help">Sua denúncia será enviada em privado para a equipe de moderação. Use este recurso para sinalizar problemas reais no registro.</p><strong className="report-form-plant">{reportTarget.common_name}</strong><label>Motivo<select value={reportReason} onChange={e => setReportReason(e.target.value)}><option value="informacao incorreta">Informação incorreta</option><option value="localizacao incorreta">Localização incorreta</option><option value="duplicidade">Publicação duplicada</option><option value="conteudo inadequado">Conteúdo inadequado</option><option value="risco ambiental">Risco ambiental ou acesso indevido</option><option value="outro">Outro motivo</option></select></label><label>Detalhes (opcional)<textarea value={reportDetails} onChange={e => setReportDetails(e.target.value)} maxLength={2000} placeholder="Explique o que precisa ser verificado..."/></label><button className="primary submit" type="submit" disabled={submittingReport}>{submittingReport ? 'Enviando...' : 'Enviar denúncia'}</button></form></div>}
 
       {authMode && <div className="modal-backdrop" onClick={() => { if (!authLoading) setAuthMode(null) }}><section className="modal auth-modal" onClick={e => e.stopPropagation()}><button type="button" className="close" onClick={() => setAuthMode(null)} disabled={authLoading}>×</button><span className="eyebrow">MAPA DAS ERVAS VIVAS</span><h2>{authMode === 'signup' ? 'Crie sua conta' : 'Bem-vindo de volta'}</h2><p className="form-help">{authMode === 'signup' ? 'Participe da comunidade e ajude a registrar a natureza ao nosso redor.' : 'Entre para colaborar com o mapa e acompanhar seus registros.'}</p><button type="button" className="google-auth-button" onClick={signInWithGoogle} disabled={authLoading}><Chrome size={18}/> Continuar com Google</button><div className="auth-divider"><span>ou continue com e-mail</span></div><form onSubmit={submitAuth}><label>E-mail<input type="email" autoComplete="email" required value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="voce@exemplo.com"/></label><label>Senha<input type="password" autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'} minLength={6} required value={authPassword} onChange={e => setAuthPassword(e.target.value)} placeholder="Mínimo de 6 caracteres"/></label><button className="primary submit" type="submit" disabled={authLoading}>{authLoading ? 'Aguarde...' : authMode === 'signup' ? 'Criar conta com e-mail' : 'Entrar com e-mail'}</button></form><p className="auth-switch">{authMode === 'signup' ? 'Já tem uma conta?' : 'Ainda não tem conta?'} <button type="button" onClick={() => setAuthMode(authMode === 'signup' ? 'signin' : 'signup')}>{authMode === 'signup' ? 'Entrar' : 'Criar conta'}</button></p></section></div>}
 
