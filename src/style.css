@@ -140,3 +140,18 @@
 .photo-review-actions{display:flex;gap:5px}
 .photo-review-actions button{flex:1;background:#edf4ec!important;color:#315b3c!important}
 .photo-review-actions button+button{background:#f8eeee!important;color:#9a3838!important}
+
+
+.audit-filters{display:grid;grid-template-columns:minmax(0,1fr) 170px;gap:8px;margin:12px 0}
+.audit-filters input,.audit-filters select{min-width:0;border:1px solid #dce4d9;border-radius:8px;padding:9px 10px;background:#fff;color:#435747;font:12px 'DM Sans'}
+.audit-detail{margin-top:5px;color:#526653;font-size:10px}
+.audit-detail summary{cursor:pointer;font-weight:700}
+.audit-detail pre{max-width:100%;max-height:220px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:#f2f5ef;border-radius:7px;padding:9px;font:10px/1.5 monospace}
+.health-issues{margin-top:14px;border-top:1px solid #e8ede6;padding-top:12px;display:grid;gap:8px}
+.health-issues>strong{font-size:12px;color:#435747}
+.health-issue{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px;background:#fff;border:1px solid #e8ede6;border-radius:8px}
+.health-issue>div{display:grid;gap:3px;min-width:0}
+.health-issue b{font-size:11px;color:#435747}
+.health-issue span{font-size:10px;color:#829082;line-height:1.4}
+.health-issue a{flex:0 0 auto;font-size:10px;color:#28523b;font-weight:700}
+@media(max-width:700px){.audit-filters{grid-template-columns:1fr}.health-issue{align-items:flex-start}.health-issue a{padding-top:2px}}
