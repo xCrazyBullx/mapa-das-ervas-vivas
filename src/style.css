@@ -185,3 +185,7 @@
 .report-note-label textarea{width:100%;min-height:58px;border:1px solid #dce4d9;border-radius:8px;padding:9px;font:12px 'DM Sans';resize:vertical}
 .report-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 @media(max-width:700px){.report-heading{align-items:flex-start}.report-pending-count{font-size:9px;padding:6px 8px}.report-card{padding:12px}.report-actions button{flex:1}}
+
+.popup-report-action{margin-left:6px;background:#f8eeee;color:#8e4141;border:1px solid #efdada;padding:7px 10px;border-radius:6px;cursor:pointer;font:600 11px 'DM Sans'}
+.popup-report-action:hover{background:#f3e5e5}
+.report-form-plant{display:block;padding:10px 12px;border-radius:8px;background:#f3f6f0;color:#36513b;font-size:13px}
