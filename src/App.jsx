@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import { supabase, supabaseReady } from './supabase'
-import { Leaf, MapPin, Plus, Search, LogIn, LogOut, ShieldCheck, Camera, LocateFixed, AlertCircle } from 'lucide-react'
+import { Leaf, MapPin, Plus, Search, LogIn, LogOut, ShieldCheck, Camera, LocateFixed, AlertCircle, Chrome } from 'lucide-react'
 
 const markerIcon = new L.Icon({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -43,6 +43,15 @@ export default function App() {
     if (error) setNotice('Não foi possível carregar as plantas: ' + error.message)
     else setPlants(data ?? [])
     setLoading(false)
+  }
+
+  async function signInWithGoogle() {
+    if (!supabaseReady) { setNotice('O serviço de autenticação ainda não está configurado.'); return }
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin }
+    })
+    if (error) setNotice('Não foi possível iniciar o login com Google: ' + error.message)
   }
 
   async function signIn() {
@@ -116,7 +125,7 @@ export default function App() {
       <header className="topbar">
         <a className="brand" href="#"><span className="brand-mark"><Leaf size={22}/></span><span><strong>Ervas Vivas</strong><small>MAPA COLABORATIVO</small></span></a>
         <div className="account-actions">
-          {user ? <button className="ghost" onClick={() => supabase.auth.signOut()}><LogOut size={17}/> Sair</button> : <><button className="ghost" onClick={signUp}>Criar conta</button><button className="login" onClick={signIn}><LogIn size={16}/> Entrar</button></>}
+          {user ? <button className="ghost" onClick={() => supabase.auth.signOut()}><LogOut size={17}/> Sair</button> : <><button className="google-login" onClick={signInWithGoogle}><Chrome size={16}/> Google</button><button className="ghost" onClick={signUp}>Criar conta</button><button className="login" onClick={signIn}><LogIn size={16}/> Entrar</button></>}
         </div>
       </header>
 
