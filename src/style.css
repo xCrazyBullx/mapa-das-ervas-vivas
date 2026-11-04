@@ -9,3 +9,7 @@
 .category-filters button:hover{border-color:#78936c}
 .map-heading h2{max-width:520px}
 @media(max-width:700px){.map-heading h2{font-size:25px}.category-filters{margin-top:12px;padding-bottom:14px}}
+
+.google-login{border:1px solid #dfe5dc;border-radius:9px;padding:11px 14px;background:#fff;color:#344b3a;font:600 13px 'DM Sans';cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.google-login:hover{background:#f5f7f2;border-color:#cbd8c8}
+@media(max-width:700px){.google-login{padding:9px;font-size:11px}}
