@@ -586,7 +586,7 @@ export default function App() {
       <main>
         <section className="intro">
           <div><span className="eyebrow">CONHECIMENTO QUE FLORESCE EM COMUNIDADE</span><h1>Encontre. Conheça.<br/><em>Preserve.</em></h1><p>Um mapa colaborativo para descobrir plantas, ervas e árvores ao nosso redor.</p></div>
-          <button className="primary add-button" onClick={() => { setLocationGate(true); setNotice('') }}><Plus size={18}/> Cadastrar planta</button>
+          <button className="primary add-button" onClick={() => { setLocationGate(true); setNotice('') }}><Plus size={18}/> Registrar descoberta</button>
         </section>
 
         {!supabaseReady && <div className="notice warning"><AlertCircle size={18}/> O aplicativo está no ar em modo de configuração. Falta inserir as variáveis públicas do Supabase para carregar os dados.</div>}
@@ -648,7 +648,7 @@ export default function App() {
 
         <section className="info-strip"><div><LocateFixed/><strong>Localização colaborativa</strong><p>Marque o ponto no mapa ou use sua localização.</p></div><div><Camera/><strong>Fotos e registros</strong><p>Ajude a comunidade a reconhecer cada espécie.</p></div><div><ShieldCheck/><strong>Conteúdo revisado</strong><p>Novos cadastros aguardam aprovação.</p></div></section>
       </main>
-      <footer>MAPA DAS ERVAS VIVAS <span>Feito para compartilhar conhecimento e preservar a natureza.</span><small className="app-version">Versão 0.3.3</small></footer>
+      <footer>MAPA DAS ERVAS VIVAS <span>Feito para compartilhar conhecimento e preservar a natureza.</span><small className="app-version">Versão 0.3.4</small></footer>
 
       {reportTarget && <div className="modal-backdrop" onClick={() => { if (!submittingReport) setReportTarget(null) }}><form className="modal" onSubmit={submitPlantReport} onClick={e => e.stopPropagation()}><button type="button" className="close" onClick={() => setReportTarget(null)} disabled={submittingReport}>×</button><span className="eyebrow">CONTRIBUIÇÃO DA COMUNIDADE</span><h2>Denunciar publicação</h2><p className="form-help">Sua denúncia será enviada em privado para a equipe de moderação. Use este recurso para sinalizar problemas reais no registro.</p><strong className="report-form-plant">{reportTarget.common_name}</strong><label>Motivo<select value={reportReason} onChange={e => setReportReason(e.target.value)}><option value="informacao incorreta">Informação incorreta</option><option value="localizacao incorreta">Localização incorreta</option><option value="duplicidade">Publicação duplicada</option><option value="conteudo inadequado">Conteúdo inadequado</option><option value="risco ambiental">Risco ambiental ou acesso indevido</option><option value="outro">Outro motivo</option></select></label><label>Detalhes (opcional)<textarea value={reportDetails} onChange={e => setReportDetails(e.target.value)} maxLength={2000} placeholder="Explique o que precisa ser verificado..."/></label><button className="primary submit" type="submit" disabled={submittingReport}>{submittingReport ? 'Enviando...' : 'Enviar denúncia'}</button></form></div>}
 
