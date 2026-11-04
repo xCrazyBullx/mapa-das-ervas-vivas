@@ -446,7 +446,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <a className="brand" href="#"><span className="brand-mark"><Leaf size={22}/></span><span><strong>Ervas Vivas</strong><small>MAPA COLABORATIVO</small></span></a>
+        <a className="brand" href="#"><span className="brand-mark"><img src="/logo-mapa-ervas-vivas.svg" alt="" /></span><span><strong>Ervas Vivas</strong><small>MAPA COLABORATIVO</small></span></a>
         <div className="account-actions">
           {user ? <><button className="ghost notification-nav" onClick={() => { setShowNotifications(v => !v); if (!showNotifications) loadNotifications() }} aria-label="Notificações"><Bell size={17}/> Avisos{notifications.some(item => !item.read_at) && <span className="notification-count">{notifications.filter(item => !item.read_at).length}</span>}</button>{['admin', 'moderator'].includes(userRole) && <button className="ghost moderation-nav" onClick={() => { setShowAdmin(v => !v); if (!showAdmin) loadPendingPlants() }}><ShieldCheck size={17}/> {showAdmin ? 'Voltar ao mapa' : 'Moderação'}</button>}<button className="ghost" onClick={() => supabase.auth.signOut()}><LogOut size={17}/> Sair</button></> : <><button className="ghost" onClick={() => setAuthMode('signup')}>Criar conta</button><button className="login" onClick={() => setAuthMode('signin')}><LogIn size={16}/> Entrar</button></>}
         </div>
