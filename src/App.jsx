@@ -53,6 +53,7 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState('todas')
   const [user, setUser] = useState(null)
   const [userRole, setUserRole] = useState(null)
+  const [sessionWarning, setSessionWarning] = useState(false)
   const [notifications, setNotifications] = useState([])
   const [showNotifications, setShowNotifications] = useState(false)
   const [showAdmin, setShowAdmin] = useState(false)
@@ -121,6 +122,63 @@ export default function App() {
     loadRole()
     return () => { active = false }
   }, [user])
+
+  useEffect(() => {
+    if (!user || !supabaseReady) { setSessionWarning(false); return }
+
+    const inactivityLimit = ['admin', 'moderator'].includes(userRole)
+      ? 30 * 60 * 1000
+      : 7 * 24 * 60 * 60 * 1000
+    const warningWindow = 5 * 60 * 1000
+    const storageKey = 'mapa-ervas-last-activity-' + user.id
+    let lastActivityAt = Number(localStorage.getItem(storageKey)) || Date.now()
+    let lastStorageWriteAt = 0
+    let signingOut = false
+
+    function recordActivity() {
+      lastActivityAt = Date.now()
+      setSessionWarning(false)
+      if (lastActivityAt - lastStorageWriteAt >= 10000) {
+        localStorage.setItem(storageKey, String(lastActivityAt))
+        lastStorageWriteAt = lastActivityAt
+      }
+    }
+
+    function checkInactivity() {
+      const elapsed = Date.now() - lastActivityAt
+      const remaining = inactivityLimit - elapsed
+      if (remaining <= 0 && !signingOut) {
+        signingOut = true
+        setSessionWarning(false)
+        supabase.auth.signOut({ scope: 'local' }).then(({ error }) => {
+          if (error) setNotice('A sessão expirou, mas não foi possível encerrar o acesso: ' + error.message)
+          else setNotice('Sua sessão foi encerrada por inatividade. Entre novamente para continuar.')
+        })
+        return
+      }
+      setSessionWarning(remaining <= warningWindow)
+    }
+
+    localStorage.setItem(storageKey, String(lastActivityAt))
+    lastStorageWriteAt = Date.now()
+    const activityEvents = ['pointerdown', 'pointermove', 'keydown', 'touchstart', 'scroll']
+    activityEvents.forEach(eventName => window.addEventListener(eventName, recordActivity, { passive: true }))
+    function syncActivity(event) {
+      if (event.key === storageKey && event.newValue) {
+        lastActivityAt = Number(event.newValue) || lastActivityAt
+        checkInactivity()
+      }
+    }
+    window.addEventListener('storage', syncActivity)
+    const interval = window.setInterval(checkInactivity, 15000)
+    checkInactivity()
+
+    return () => {
+      activityEvents.forEach(eventName => window.removeEventListener(eventName, recordActivity))
+      window.removeEventListener('storage', syncActivity)
+      window.clearInterval(interval)
+    }
+  }, [user, userRole])
 
   useEffect(() => {
     if (!('geolocation' in navigator)) { setLocationStatus('unavailable'); return }
@@ -648,6 +706,8 @@ export default function App() {
 
         <section className="info-strip"><div><LocateFixed/><strong>Localização colaborativa</strong><p>Marque o ponto no mapa ou use sua localização.</p></div><div><Camera/><strong>Fotos e registros</strong><p>Ajude a comunidade a reconhecer cada espécie.</p></div><div><ShieldCheck/><strong>Conteúdo revisado</strong><p>Novos cadastros aguardam aprovação.</p></div></section>
       </main>
+      {sessionWarning && user && <div className="modal-backdrop session-warning-backdrop"><section className="modal session-warning" role="alertdialog" aria-modal="true" aria-labelledby="session-warning-title"><span className="eyebrow">SEGURANÇA DA CONTA</span><h2 id="session-warning-title">Sua sessão está prestes a expirar</h2><p className="form-help">Por segurança, encerraremos sua sessão após um período sem atividade. Se ainda estiver usando o mapa, continue conectado.</p><button type="button" className="primary submit" onClick={() => { const key = 'mapa-ervas-last-activity-' + user.id; const now = Date.now(); localStorage.setItem(key, String(now)); setSessionWarning(false) }}>Continuar conectado</button></section></div>}
+
       <footer>MAPA DAS ERVAS VIVAS <span>Feito para compartilhar conhecimento e preservar a natureza.</span><small className="app-version">Versão 0.3.4</small></footer>
 
       {reportTarget && <div className="modal-backdrop" onClick={() => { if (!submittingReport) setReportTarget(null) }}><form className="modal" onSubmit={submitPlantReport} onClick={e => e.stopPropagation()}><button type="button" className="close" onClick={() => setReportTarget(null)} disabled={submittingReport}>×</button><span className="eyebrow">CONTRIBUIÇÃO DA COMUNIDADE</span><h2>Denunciar publicação</h2><p className="form-help">Sua denúncia será enviada em privado para a equipe de moderação. Use este recurso para sinalizar problemas reais no registro.</p><strong className="report-form-plant">{reportTarget.common_name}</strong><label>Motivo<select value={reportReason} onChange={e => setReportReason(e.target.value)}><option value="informacao incorreta">Informação incorreta</option><option value="localizacao incorreta">Localização incorreta</option><option value="duplicidade">Publicação duplicada</option><option value="conteudo inadequado">Conteúdo inadequado</option><option value="risco ambiental">Risco ambiental ou acesso indevido</option><option value="outro">Outro motivo</option></select></label><label>Detalhes (opcional)<textarea value={reportDetails} onChange={e => setReportDetails(e.target.value)} maxLength={2000} placeholder="Explique o que precisa ser verificado..."/></label><button className="primary submit" type="submit" disabled={submittingReport}>{submittingReport ? 'Enviando...' : 'Enviar denúncia'}</button></form></div>}
