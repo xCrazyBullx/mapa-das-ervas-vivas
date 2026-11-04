@@ -6,7 +6,29 @@ As versões seguem o padrão SemVer: MAJOR.MINOR.PATCH.
 - **MINOR**: nova funcionalidade ou melhoria relevante, mantendo compatibilidade.
 - **PATCH**: correção de bug, ajuste pequeno ou melhoria interna.
 
-Enquanto o projeto estiver antes da versão 1.0.0, a API e as funcionalidades ainda podem mudar. A versão atual é 0.2.0.
+Enquanto o projeto estiver antes da versão 1.0.0, a API e as funcionalidades ainda podem mudar. A versão atual é 0.2.1.
+
+## [0.2.1] — 2026-11-03
+
+**Resumo:** reduz o consumo de consultas e tráfego no carregamento do mapa e na moderação.
+
+### Alterado
+- Mapa carrega até 200 plantas aprovadas por página, com opção de carregar mais sob demanda.
+- Consulta pública do mapa seleciona apenas os campos necessários.
+- Confirmação de presença não força novo download de todas as plantas.
+- URLs assinadas das fotos de moderação são solicitadas em lote.
+- Consultas administrativas e de moderação selecionam colunas específicas; histórico das pendências fica limitado a 300 registros.
+
+### Validação
+- Código revisado e alterações registradas na branch main.
+- Build: não executado neste ambiente.
+- Deploy: não confirmado.
+- Testes reais de navegação, paginação, moderação e fotos: pendentes.
+
+### Commit relacionado
+- A ser preenchido após o commit desta versão.
+
+---
 
 ## [0.2.0] — 2026-11-03
 
