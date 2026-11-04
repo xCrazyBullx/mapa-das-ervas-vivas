@@ -392,15 +392,32 @@ export default function App() {
       img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Não foi possível ler uma das imagens.')) }
       img.src = url
     })
-    const scale = Math.min(1, 1600 / Math.max(image.width, image.height))
-    const canvas = document.createElement('canvas')
-    canvas.width = Math.max(1, Math.round(image.width * scale))
-    canvas.height = Math.max(1, Math.round(image.height * scale))
-    canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height)
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', 0.8))
-    if (!blob) throw new Error('Não foi possível comprimir uma das imagens.')
-    if (blob.size > 1024 * 1024) throw new Error('Uma imagem ficou acima de 1 MB mesmo após a compressão. Escolha outra foto.')
-    return new File([blob], (file.name.replace(/\\.[^.]+$/, '') || 'planta') + '.webp', { type: 'image/webp', lastModified: Date.now() })
+    const maxBytes = 1024 * 1024
+    const attempts = [
+      { maxDimension: 1600, quality: 0.8 },
+      { maxDimension: 1280, quality: 0.7 },
+      { maxDimension: 1024, quality: 0.6 },
+    ]
+
+    for (const attempt of attempts) {
+      const scale = Math.min(1, attempt.maxDimension / Math.max(image.width, image.height))
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.max(1, Math.round(image.width * scale))
+      canvas.height = Math.max(1, Math.round(image.height * scale))
+      const context = canvas.getContext('2d')
+      if (!context) throw new Error('Não foi possível preparar uma das imagens.')
+      context.drawImage(image, 0, 0, canvas.width, canvas.height)
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', attempt.quality))
+      if (!blob) throw new Error('Não foi possível comprimir uma das imagens.')
+      if (blob.size <= maxBytes) {
+        return new File([blob], (file.name.replace(/\\.[^.]+$/, '') || 'planta') + '.webp', {
+          type: 'image/webp',
+          lastModified: Date.now(),
+        })
+      }
+    }
+
+    throw new Error('Não foi possível reduzir uma das fotos para menos de 1 MB. Tente outra imagem.')
   }
 
   async function submitPlant(e) {
