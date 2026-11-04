@@ -126,9 +126,9 @@ export default function App() {
   useEffect(() => {
     if (!user || !supabaseReady) { setSessionWarning(false); return }
 
-    const inactivityLimit = ['admin', 'moderator'].includes(userRole)
-      ? 30 * 60 * 1000
-      : 7 * 24 * 60 * 60 * 1000
+    const inactivityLimit = userRole === 'contributor'
+      ? 7 * 24 * 60 * 60 * 1000
+      : 30 * 60 * 1000
     const warningWindow = 5 * 60 * 1000
     const storageKey = 'mapa-ervas-last-activity-' + user.id
     let lastActivityAt = Number(localStorage.getItem(storageKey)) || Date.now()
@@ -708,7 +708,7 @@ export default function App() {
       </main>
       {sessionWarning && user && <div className="modal-backdrop session-warning-backdrop"><section className="modal session-warning" role="alertdialog" aria-modal="true" aria-labelledby="session-warning-title"><span className="eyebrow">SEGURANÇA DA CONTA</span><h2 id="session-warning-title">Sua sessão está prestes a expirar</h2><p className="form-help">Por segurança, encerraremos sua sessão após um período sem atividade. Se ainda estiver usando o mapa, continue conectado.</p><button type="button" className="primary submit" onClick={() => { const key = 'mapa-ervas-last-activity-' + user.id; const now = Date.now(); localStorage.setItem(key, String(now)); setSessionWarning(false) }}>Continuar conectado</button></section></div>}
 
-      <footer>MAPA DAS ERVAS VIVAS <span>Feito para compartilhar conhecimento e preservar a natureza.</span><small className="app-version">Versão 0.3.4</small></footer>
+      <footer>MAPA DAS ERVAS VIVAS <span>Feito para compartilhar conhecimento e preservar a natureza.</span><small className="app-version">Versão 0.3.5</small></footer>
 
       {reportTarget && <div className="modal-backdrop" onClick={() => { if (!submittingReport) setReportTarget(null) }}><form className="modal" onSubmit={submitPlantReport} onClick={e => e.stopPropagation()}><button type="button" className="close" onClick={() => setReportTarget(null)} disabled={submittingReport}>×</button><span className="eyebrow">CONTRIBUIÇÃO DA COMUNIDADE</span><h2>Denunciar publicação</h2><p className="form-help">Sua denúncia será enviada em privado para a equipe de moderação. Use este recurso para sinalizar problemas reais no registro.</p><strong className="report-form-plant">{reportTarget.common_name}</strong><label>Motivo<select value={reportReason} onChange={e => setReportReason(e.target.value)}><option value="informacao incorreta">Informação incorreta</option><option value="localizacao incorreta">Localização incorreta</option><option value="duplicidade">Publicação duplicada</option><option value="conteudo inadequado">Conteúdo inadequado</option><option value="risco ambiental">Risco ambiental ou acesso indevido</option><option value="outro">Outro motivo</option></select></label><label>Detalhes (opcional)<textarea value={reportDetails} onChange={e => setReportDetails(e.target.value)} maxLength={2000} placeholder="Explique o que precisa ser verificado..."/></label><button className="primary submit" type="submit" disabled={submittingReport}>{submittingReport ? 'Enviando...' : 'Enviar denúncia'}</button></form></div>}
 
