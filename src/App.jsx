@@ -67,7 +67,7 @@ export default function App() {
     if (!user) { setNotice('Entre na sua conta para enviar uma planta.'); return }
     if (!selected) { setNotice('Toque no mapa para marcar a localização da planta.'); return }
     const payload = {
-      name: form.name.trim(),
+      common_name: form.name.trim(),
       scientific_name: form.scientific_name.trim() || null,
       description: form.description.trim() || null,
       latitude: selected.lat,
@@ -83,8 +83,7 @@ export default function App() {
       const path = user.id + '/' + data.id + '/' + Date.now() + '.' + ext
       const upload = await supabase.storage.from('plant-photos').upload(path, photo)
       if (!upload.error) {
-        const publicUrl = supabase.storage.from('plant-photos').getPublicUrl(path).data.publicUrl
-        await supabase.from('plant_photos').insert({ plant_id: data.id, storage_path: path, photo_url: publicUrl, uploaded_by: user.id, status: 'pending' })
+        await supabase.from('plant_photos').insert({ plant_id: data.id, storage_path: path, caption: 'Foto enviada no cadastro', uploaded_by: user.id })
       } else {
         setNotice('Planta enviada, mas houve falha no envio da foto: ' + upload.error.message)
         setShowForm(false)
@@ -101,13 +100,13 @@ export default function App() {
   async function confirmPlant(plant) {
     if (!user) { setNotice('Entre na sua conta para confirmar a presença.'); return }
     const { error } = await supabase.from('plant_confirmations').insert({
-      plant_id: plant.id, confirmed_by: user.id, latitude: null, longitude: null, notes: 'Confirmação registrada pelo mapa'
+      plant_id: plant.id, confirmed_by: user.id, notes: 'Confirmação registrada pelo mapa'
     })
     setNotice(error ? 'Não foi possível confirmar: ' + error.message : 'Confirmação registrada. Obrigado!')
     if (!error) loadPlants()
   }
 
-  const visiblePlants = plants.filter(p => [p.name, p.scientific_name, p.description].filter(Boolean).join(' ').toLowerCase().includes(search.toLowerCase()))
+  const visiblePlants = plants.filter(p => [p.common_name, p.scientific_name, p.description].filter(Boolean).join(' ').toLowerCase().includes(search.toLowerCase()))
 
   return (
     <div className="app-shell">
@@ -133,7 +132,7 @@ export default function App() {
             <MapContainer center={[-23.3103, -51.1628]} zoom={12} scrollWheelZoom={true} className="map">
               <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
               <SelectLocation onSelect={setSelected}/>
-              {visiblePlants.map(p => <Marker key={p.id} position={[p.latitude, p.longitude]} icon={markerIcon}><Popup><strong>{p.name}</strong><p>{p.description || 'Sem descrição.'}</p><small>{p.scientific_name || ''}</small><p><button className="popup-action" onClick={() => confirmPlant(p)}>Confirmar presença</button></p><a target="_blank" rel="noreferrer" href={'https://www.google.com/maps?q=' + p.latitude + ',' + p.longitude}>Abrir no Google Maps</a></Popup></Marker>)}
+              {visiblePlants.map(p => <Marker key={p.id} position={[p.latitude, p.longitude]} icon={markerIcon}><Popup><strong>{p.common_name}</strong><p>{p.description || 'Sem descrição.'}</p><small>{p.scientific_name || ''}</small><p><button className="popup-action" onClick={() => confirmPlant(p)}>Confirmar presença</button></p><a target="_blank" rel="noreferrer" href={'https://www.google.com/maps?q=' + p.latitude + ',' + p.longitude}>Abrir no Google Maps</a></Popup></Marker>)}
               {selected && <Marker position={[selected.lat, selected.lng]} icon={markerIcon}><Popup>Local escolhido para novo cadastro</Popup></Marker>}
             </MapContainer>
             <div className="map-hint"><MapPin size={15}/> Toque no mapa para escolher um ponto de cadastro</div>
