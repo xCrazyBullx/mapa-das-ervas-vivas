@@ -16,6 +16,12 @@ function SelectLocation({ onSelect }) {
   return null
 }
 
+function RecenterMap({ position }) {
+  const map = useMapEvents({})
+  useEffect(() => { if (position) map.setView([position.lat, position.lng], 16) }, [position, map])
+  return null
+}
+
 export default function App() {
   const [plants, setPlants] = useState([])
   const [loading, setLoading] = useState(true)
@@ -23,6 +29,9 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState('todas')
   const [user, setUser] = useState(null)
   const [showForm, setShowForm] = useState(false)
+  const [locationGate, setLocationGate] = useState(false)
+  const [locating, setLocating] = useState(false)
+  const [selectingLocation, setSelectingLocation] = useState(false)
   const [authMode, setAuthMode] = useState(null)
   const [authEmail, setAuthEmail] = useState('')
   const [authPassword, setAuthPassword] = useState('')
@@ -70,6 +79,43 @@ export default function App() {
     setAuthPassword('')
     setAuthMode(null)
     setNotice(authMode === 'signup' ? 'Cadastro iniciado. Confira seu e-mail para confirmar a conta, se solicitado.' : 'Login realizado com sucesso.')
+  }
+
+  function requestCurrentLocation() {
+    if (!navigator.geolocation) { setNotice('Seu navegador não oferece localização. Marque o ponto manualmente no mapa.'); return }
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        const point = { lat: position.coords.latitude, lng: position.coords.longitude }
+        setSelected(point)
+        setLocating(false)
+        setLocationGate(false)
+        setSelectingLocation(false)
+        setShowForm(true)
+        setNotice('Localização atual capturada. Confira o ponto no mapa antes de enviar.')
+      },
+      error => {
+        setLocating(false)
+        const message = error.code === 1 ? 'Permissão de localização negada. Você pode marcar o ponto manualmente no mapa.' : error.code === 3 ? 'A localização demorou demais. Tente novamente ou marque no mapa.' : 'Não foi possível obter sua localização. Confira o GPS ou marque no mapa.'
+        setNotice(message)
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    )
+  }
+
+  function startManualLocation() {
+    setLocationGate(false)
+    setSelectingLocation(true)
+    setNotice('Toque no mapa no ponto exato onde a planta está. O cadastro abrirá em seguida.')
+  }
+
+  function handleMapSelection(point) {
+    setSelected(point)
+    if (selectingLocation) {
+      setSelectingLocation(false)
+      setShowForm(true)
+      setNotice('Local marcado no mapa. Confira as coordenadas antes de enviar.')
+    }
   }
 
   async function submitPlant(e) {
@@ -132,7 +178,7 @@ export default function App() {
       <main>
         <section className="intro">
           <div><span className="eyebrow">CONHECIMENTO QUE FLORESCE EM COMUNIDADE</span><h1>Encontre. Conheça.<br/><em>Preserve.</em></h1><p>Um mapa colaborativo para descobrir plantas, ervas e árvores ao nosso redor.</p></div>
-          <button className="primary add-button" onClick={() => setShowForm(true)}><Plus size={18}/> Cadastrar planta</button>
+          <button className="primary add-button" onClick={() => { setLocationGate(true); setNotice('') }}><Plus size={18}/> Cadastrar planta</button>
         </section>
 
         {!supabaseReady && <div className="notice warning"><AlertCircle size={18}/> O aplicativo está no ar em modo de configuração. Falta inserir as variáveis públicas do Supabase para carregar os dados.</div>}
@@ -144,11 +190,11 @@ export default function App() {
           <div className="map-wrap">
             <MapContainer center={[-23.3103, -51.1628]} zoom={12} scrollWheelZoom={true} className="map">
               <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
-              <SelectLocation onSelect={setSelected}/>
+              <SelectLocation onSelect={handleMapSelection}/><RecenterMap position={selected}/>
               {visiblePlants.map(p => <Marker key={p.id} position={[p.latitude, p.longitude]} icon={markerIcon}><Popup><strong>{p.common_name}</strong><p>{p.description || 'Sem descrição.'}</p><small>{p.scientific_name || ''}</small><p><button className="popup-action" onClick={() => confirmPlant(p)}>Confirmar presença</button></p><a target="_blank" rel="noreferrer" href={'https://www.google.com/maps?q=' + p.latitude + ',' + p.longitude}>Abrir no Google Maps</a></Popup></Marker>)}
               {selected && <Marker position={[selected.lat, selected.lng]} icon={markerIcon}><Popup>Local escolhido para novo cadastro</Popup></Marker>}
             </MapContainer>
-            <div className="map-hint"><MapPin size={15}/> Toque no mapa para escolher um ponto de cadastro</div>
+            <div className="map-hint"><MapPin size={15}/> {selectingLocation ? 'Toque no ponto exato da planta para continuar' : 'Use o mapa para explorar e localizar plantas'}</div>
           </div>
           <div className="map-footer"><span><span className="dot"/> {loading ? 'Carregando...' : visiblePlants.length + ' plantas aprovadas'}</span><span><ShieldCheck size={15}/> Publicações passam por moderação</span></div>
         </section>
@@ -159,7 +205,9 @@ export default function App() {
 
       {authMode && <div className="modal-backdrop" onClick={() => { if (!authLoading) setAuthMode(null) }}><section className="modal auth-modal" onClick={e => e.stopPropagation()}><button type="button" className="close" onClick={() => setAuthMode(null)} disabled={authLoading}>×</button><span className="eyebrow">MAPA DAS ERVAS VIVAS</span><h2>{authMode === 'signup' ? 'Crie sua conta' : 'Bem-vindo de volta'}</h2><p className="form-help">{authMode === 'signup' ? 'Participe da comunidade e ajude a registrar a natureza ao nosso redor.' : 'Entre para colaborar com o mapa e acompanhar seus registros.'}</p><button type="button" className="google-auth-button" onClick={signInWithGoogle} disabled={authLoading}><Chrome size={18}/> Continuar com Google</button><div className="auth-divider"><span>ou continue com e-mail</span></div><form onSubmit={submitAuth}><label>E-mail<input type="email" autoComplete="email" required value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="voce@exemplo.com"/></label><label>Senha<input type="password" autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'} minLength={6} required value={authPassword} onChange={e => setAuthPassword(e.target.value)} placeholder="Mínimo de 6 caracteres"/></label><button className="primary submit" type="submit" disabled={authLoading}>{authLoading ? 'Aguarde...' : authMode === 'signup' ? 'Criar conta com e-mail' : 'Entrar com e-mail'}</button></form><p className="auth-switch">{authMode === 'signup' ? 'Já tem uma conta?' : 'Ainda não tem conta?'} <button type="button" onClick={() => setAuthMode(authMode === 'signup' ? 'signin' : 'signup')}>{authMode === 'signup' ? 'Entrar' : 'Criar conta'}</button></p></section></div>}
 
-      {showForm && <div className="modal-backdrop" onClick={() => setShowForm(false)}><form className="modal" onSubmit={submitPlant} onClick={e => e.stopPropagation()}><button type="button" className="close" onClick={() => setShowForm(false)}>×</button><span className="eyebrow">NOVO REGISTRO</span><h2>Cadastrar uma planta</h2><p className="form-help">Preencha os dados e toque no mapa para marcar o local. O cadastro ficará pendente até a revisão.</p><label>Nome popular<input required value={form.name} onChange={e => setForm({...form, name:e.target.value})} placeholder="Ex.: Alecrim"/></label><label>Nome científico (opcional)<input value={form.scientific_name} onChange={e => setForm({...form, scientific_name:e.target.value})} placeholder="Ex.: Salvia rosmarinus"/></label><label>Categoria<select value={form.category} onChange={e => setForm({...form, category:e.target.value})}><option value="arvore">Árvore</option><option value="erva">Erva</option><option value="flor">Flor</option><option value="frutifera">Frutífera</option><option value="arbusto">Arbusto</option><option value="outra">Outra</option></select></label><label>Descrição<textarea value={form.description} onChange={e => setForm({...form, description:e.target.value})} placeholder="Conte como identificar a planta..."/></label><label>Tipo de local<select value={form.location_type} onChange={e => setForm({...form, location_type:e.target.value})}><option value="publico">Local público</option><option value="particular">Propriedade particular (com autorização)</option><option value="aproximado">Localização aproximada</option><option value="preservacao">Área de preservação</option></select></label><label className="file-label"><Camera size={17}/> Foto (opcional)<input type="file" accept="image/*" onChange={e => setPhoto(e.target.files?.[0] || null)}/></label><div className="selected-location">{selected ? 'Ponto marcado: ' + selected.lat.toFixed(5) + ', ' + selected.lng.toFixed(5) : 'Nenhum ponto marcado. Feche o formulário e toque no mapa.'}</div><button className="primary submit" type="submit">Enviar para aprovação</button></form></div>}
+      {locationGate && <div className="modal-backdrop" onClick={() => setLocationGate(false)}><section className="modal location-gate" onClick={e => e.stopPropagation()}><button type="button" className="close" onClick={() => setLocationGate(false)}>×</button><span className="eyebrow">ANTES DE CADASTRAR</span><h2>Onde está a planta?</h2><p className="form-help">Para registrar uma planta, precisamos marcar no mapa o local onde ela está. Você pode compartilhar sua localização atual ou escolher o ponto manualmente.</p><button type="button" className="primary submit" onClick={requestCurrentLocation} disabled={locating}><LocateFixed size={18}/>{locating ? 'Obtendo localização...' : 'Usar minha localização atual'}</button><button type="button" className="manual-location-button" onClick={startManualLocation} disabled={locating}><MapPin size={18}/> Marcar manualmente no mapa</button><p className="location-privacy">O navegador pedirá sua autorização para acessar o GPS. Sua localização só será usada para posicionar este cadastro.</p></section></div>}
+
+      {showForm && <div className="modal-backdrop" onClick={() => setShowForm(false)}><form className="modal" onSubmit={submitPlant} onClick={e => e.stopPropagation()}><button type="button" className="close" onClick={() => setShowForm(false)}>×</button><span className="eyebrow">NOVO REGISTRO</span><h2>Cadastrar uma planta</h2><p className="form-help">Preencha os dados e toque no mapa para marcar o local. O cadastro ficará pendente até a revisão.</p><label>Nome popular<input required value={form.name} onChange={e => setForm({...form, name:e.target.value})} placeholder="Ex.: Alecrim"/></label><label>Nome científico (opcional)<input value={form.scientific_name} onChange={e => setForm({...form, scientific_name:e.target.value})} placeholder="Ex.: Salvia rosmarinus"/></label><label>Categoria<select value={form.category} onChange={e => setForm({...form, category:e.target.value})}><option value="arvore">Árvore</option><option value="erva">Erva</option><option value="flor">Flor</option><option value="frutifera">Frutífera</option><option value="arbusto">Arbusto</option><option value="outra">Outra</option></select></label><label>Descrição<textarea value={form.description} onChange={e => setForm({...form, description:e.target.value})} placeholder="Conte como identificar a planta..."/></label><label>Tipo de local<select value={form.location_type} onChange={e => setForm({...form, location_type:e.target.value})}><option value="publico">Local público</option><option value="particular">Propriedade particular (com autorização)</option><option value="aproximado">Localização aproximada</option><option value="preservacao">Área de preservação</option></select></label><label className="file-label"><Camera size={17}/> Foto (opcional)<input type="file" accept="image/*" onChange={e => setPhoto(e.target.files?.[0] || null)}/></label><div className="selected-location">{selected ? 'Ponto marcado: ' + selected.lat.toFixed(5) + ', ' + selected.lng.toFixed(5) : 'Nenhum ponto marcado. Feche o formulário e escolha a localização no mapa.'}</div><button className="primary submit" type="submit">Enviar para aprovação</button></form></div>}
     </div>
   )
 }
