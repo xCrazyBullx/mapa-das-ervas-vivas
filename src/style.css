@@ -192,3 +192,10 @@
 
 .location-nearby-note{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 14px;padding:10px 12px;border:1px solid #e2eade;border-radius:9px;background:#f7faf5;color:#526653;font-size:12px}.location-nearby-note button{border:0;background:transparent;color:#28523b;font:700 11px 'DM Sans';text-decoration:underline;cursor:pointer;margin-left:auto}
 @media(max-width:700px){.location-nearby-note{font-size:11px;align-items:flex-start}.location-nearby-note button{margin-left:0}}
+
+/* Leaflet markers rendered locally with CSS: no external PNG dependencies */
+.plant-map-marker,.visitor-map-marker{background:transparent!important;border:0!important}
+.plant-map-marker-pin{position:absolute;left:5px;top:1px;width:20px;height:20px;background:#28523b;border:3px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 7px #17291e66}
+.plant-map-marker-pin span{position:absolute;width:6px;height:6px;left:4px;top:4px;border-radius:50%;background:#fff}
+.visitor-map-marker-pulse{position:absolute;inset:2px;border-radius:50%;background:#3979d8aa;display:grid;place-items:center;box-shadow:0 0 0 7px #3979d833}
+.visitor-map-marker-pulse span{width:10px;height:10px;border-radius:50%;background:#2468cf;border:2px solid #fff;box-shadow:0 1px 4px #17291e66}
