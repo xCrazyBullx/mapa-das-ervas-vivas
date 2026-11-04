@@ -77,7 +77,7 @@ export default function App() {
   const [locationStatus, setLocationStatus] = useState('idle')
   const [notice, setNotice] = useState('')
   const [form, setForm] = useState({ name: '', scientific_name: '', description: '', category: 'erva', location_type: 'publico' })
-  const [photo, setPhoto] = useState(null)
+  const [photos, setPhotos] = useState([])
 
   useEffect(() => {
     if (!supabaseReady) { setLoading(false); return }
@@ -383,10 +383,31 @@ export default function App() {
     }
   }
 
+  async function compressPlantPhoto(file) {
+    if (!file || !file.type.startsWith('image/')) throw new Error('Selecione somente arquivos de imagem.')
+    const image = await new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file)
+      const img = new Image()
+      img.onload = () => { URL.revokeObjectURL(url); resolve(img) }
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Não foi possível ler uma das imagens.')) }
+      img.src = url
+    })
+    const scale = Math.min(1, 1600 / Math.max(image.width, image.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, Math.round(image.width * scale))
+    canvas.height = Math.max(1, Math.round(image.height * scale))
+    canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height)
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', 0.8))
+    if (!blob) throw new Error('Não foi possível comprimir uma das imagens.')
+    if (blob.size > 1024 * 1024) throw new Error('Uma imagem ficou acima de 1 MB mesmo após a compressão. Escolha outra foto.')
+    return new File([blob], (file.name.replace(/\\.[^.]+$/, '') || 'planta') + '.webp', { type: 'image/webp', lastModified: Date.now() })
+  }
+
   async function submitPlant(e) {
     e.preventDefault()
     if (!user) { setNotice('Entre na sua conta para enviar uma planta.'); return }
     if (!selected) { setNotice('Toque no mapa para marcar a localização da planta.'); return }
+    if (photos.length > 3) { setNotice('Envie no máximo 3 fotos por publicação.'); return }
     const payload = {
       common_name: form.name.trim(),
       scientific_name: form.scientific_name.trim() || null,
@@ -400,14 +421,18 @@ export default function App() {
     }
     const { data, error } = await supabase.from('plants').insert(payload).select('id').single()
     if (error) { setNotice('Erro ao enviar: ' + error.message); return }
-    if (photo && data?.id) {
-      const ext = photo.name.split('.').pop() || 'jpg'
-      const path = user.id + '/' + data.id + '/' + Date.now() + '.' + ext
-      const upload = await supabase.storage.from('plant-photos').upload(path, photo)
-      if (!upload.error) {
-        await supabase.from('plant_photos').insert({ plant_id: data.id, storage_path: path, caption: 'Foto enviada no cadastro', uploaded_by: user.id, status: 'pending' })
-      } else {
-        setNotice('Planta enviada, mas houve falha no envio da foto: ' + upload.error.message)
+    if (photos.length && data?.id) {
+      try {
+        const compressedPhotos = await Promise.all(photos.map(compressPlantPhoto))
+        for (const [index, photo] of compressedPhotos.entries()) {
+          const path = user.id + '/' + data.id + '/' + Date.now() + '-' + index + '.webp'
+          const upload = await supabase.storage.from('plant-photos').upload(path, photo, { contentType: 'image/webp', upsert: false })
+          if (upload.error) throw upload.error
+          const { error: photoError } = await supabase.from('plant_photos').insert({ plant_id: data.id, storage_path: path, caption: 'Foto enviada no cadastro', uploaded_by: user.id, status: 'pending' })
+          if (photoError) throw photoError
+        }
+      } catch (error) {
+        setNotice('Planta enviada, mas houve falha no processamento das fotos: ' + error.message)
         setShowForm(false)
         return
       }
@@ -415,7 +440,7 @@ export default function App() {
     setNotice('Cadastro enviado para análise de um moderador. Ele ainda não está público.')
     setShowForm(false)
     setForm({ name: '', scientific_name: '', description: '', category: 'erva', location_type: 'publico' })
-    setPhoto(null)
+    setPhotos([])
     setSelected(null)
   }
 
@@ -528,7 +553,7 @@ export default function App() {
 
       {locationGate && <div className="modal-backdrop" onClick={() => setLocationGate(false)}><section className="modal location-gate" onClick={e => e.stopPropagation()}><button type="button" className="close" onClick={() => setLocationGate(false)}>×</button><span className="eyebrow">ANTES DE CADASTRAR</span><h2>Onde está a planta?</h2><p className="form-help">Para registrar uma planta, precisamos marcar no mapa o local onde ela está. Você pode compartilhar sua localização atual ou escolher o ponto manualmente.</p><button type="button" className="primary submit" onClick={requestCurrentLocation} disabled={locating}><LocateFixed size={18}/>{locating ? 'Obtendo localização...' : 'Usar minha localização atual'}</button><button type="button" className="manual-location-button" onClick={startManualLocation} disabled={locating}><MapPin size={18}/> Marcar manualmente no mapa</button><p className="location-privacy">O navegador pedirá sua autorização para acessar o GPS. Sua localização só será usada para posicionar este cadastro.</p></section></div>}
 
-      {showForm && <div className="modal-backdrop" onClick={() => setShowForm(false)}><form className="modal" onSubmit={submitPlant} onClick={e => e.stopPropagation()}><button type="button" className="close" onClick={() => setShowForm(false)}>×</button><span className="eyebrow">NOVO REGISTRO</span><h2>Cadastrar uma planta</h2><p className="form-help">Preencha os dados e toque no mapa para marcar o local. O cadastro ficará pendente até a revisão.</p><label>Nome popular<input required value={form.name} onChange={e => setForm({...form, name:e.target.value})} placeholder="Ex.: Alecrim"/></label><label>Nome científico (opcional)<input value={form.scientific_name} onChange={e => setForm({...form, scientific_name:e.target.value})} placeholder="Ex.: Salvia rosmarinus"/></label><label>Categoria<select value={form.category} onChange={e => setForm({...form, category:e.target.value})}><option value="arvore">Árvore</option><option value="erva">Erva</option><option value="flor">Flor</option><option value="frutifera">Frutífera</option><option value="arbusto">Arbusto</option><option value="outra">Outra</option></select></label><label>Descrição<textarea value={form.description} onChange={e => setForm({...form, description:e.target.value})} placeholder="Conte como identificar a planta..."/></label><label>Tipo de local<select value={form.location_type} onChange={e => setForm({...form, location_type:e.target.value})}><option value="publico">Local público</option><option value="particular">Propriedade particular (com autorização)</option><option value="aproximado">Localização aproximada</option><option value="preservacao">Área de preservação</option></select></label><label className="file-label"><Camera size={17}/> Foto (opcional)<input type="file" accept="image/*" onChange={e => setPhoto(e.target.files?.[0] || null)}/></label><div className="selected-location">{selected ? 'Ponto marcado: ' + selected.lat.toFixed(5) + ', ' + selected.lng.toFixed(5) : 'Nenhum ponto marcado. Feche o formulário e escolha a localização no mapa.'}</div><button className="primary submit" type="submit">Enviar para aprovação</button></form></div>}
+      {showForm && <div className="modal-backdrop" onClick={() => setShowForm(false)}><form className="modal" onSubmit={submitPlant} onClick={e => e.stopPropagation()}><button type="button" className="close" onClick={() => setShowForm(false)}>×</button><span className="eyebrow">NOVO REGISTRO</span><h2>Cadastrar uma planta</h2><p className="form-help">Preencha os dados e toque no mapa para marcar o local. O cadastro ficará pendente até a revisão.</p><label>Nome popular<input required value={form.name} onChange={e => setForm({...form, name:e.target.value})} placeholder="Ex.: Alecrim"/></label><label>Nome científico (opcional)<input value={form.scientific_name} onChange={e => setForm({...form, scientific_name:e.target.value})} placeholder="Ex.: Salvia rosmarinus"/></label><label>Categoria<select value={form.category} onChange={e => setForm({...form, category:e.target.value})}><option value="arvore">Árvore</option><option value="erva">Erva</option><option value="flor">Flor</option><option value="frutifera">Frutífera</option><option value="arbusto">Arbusto</option><option value="outra">Outra</option></select></label><label>Descrição<textarea value={form.description} onChange={e => setForm({...form, description:e.target.value})} placeholder="Conte como identificar a planta..."/></label><label>Tipo de local<select value={form.location_type} onChange={e => setForm({...form, location_type:e.target.value})}><option value="publico">Local público</option><option value="particular">Propriedade particular (com autorização)</option><option value="aproximado">Localização aproximada</option><option value="preservacao">Área de preservação</option></select></label><label className="file-label"><Camera size={17}/> Fotos (opcional, até 3)<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e => { const selectedFiles = Array.from(e.target.files || []); if (selectedFiles.length > 3) { setNotice("Escolha no máximo 3 fotos."); e.target.value = ""; setPhotos([]); return } setPhotos(selectedFiles) }}/></label><small className="form-help">{photos.length} de 3 fotos selecionadas. As imagens serão convertidas para WebP, redimensionadas para até 1600 px e limitadas a 1 MB cada.</small><div className="selected-location">{selected ? 'Ponto marcado: ' + selected.lat.toFixed(5) + ', ' + selected.lng.toFixed(5) : 'Nenhum ponto marcado. Feche o formulário e escolha a localização no mapa.'}</div><button className="primary submit" type="submit">Enviar para aprovação</button></form></div>}
     </div>
   )
 }
