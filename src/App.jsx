@@ -23,6 +23,10 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState('todas')
   const [user, setUser] = useState(null)
   const [showForm, setShowForm] = useState(false)
+  const [authMode, setAuthMode] = useState(null)
+  const [authEmail, setAuthEmail] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authLoading, setAuthLoading] = useState(false)
   const [selected, setSelected] = useState(null)
   const [notice, setNotice] = useState('')
   const [form, setForm] = useState({ name: '', scientific_name: '', description: '', category: 'erva', location_type: 'publico' })
@@ -47,29 +51,25 @@ export default function App() {
 
   async function signInWithGoogle() {
     if (!supabaseReady) { setNotice('O serviço de autenticação ainda não está configurado.'); return }
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin }
-    })
-    if (error) setNotice('Não foi possível iniciar o login com Google: ' + error.message)
+    setAuthLoading(true)
+    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })
+    if (error) { setNotice('Não foi possível iniciar o login com Google: ' + error.message); setAuthLoading(false) }
   }
 
-  async function signIn() {
-    const email = window.prompt('Seu e-mail:')
-    if (!email) return
-    const password = window.prompt('Sua senha:')
-    if (!password) return
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    setNotice(error ? error.message : 'Login realizado.')
-  }
-
-  async function signUp() {
-    const email = window.prompt('E-mail para cadastro:')
-    if (!email) return
-    const password = window.prompt('Crie uma senha (mínimo 6 caracteres):')
-    if (!password) return
-    const { error } = await supabase.auth.signUp({ email, password })
-    setNotice(error ? error.message : 'Cadastro iniciado. Confira seu e-mail se a confirmação estiver habilitada.')
+  async function submitAuth(e) {
+    e.preventDefault()
+    if (!supabaseReady) { setNotice('O serviço de autenticação ainda não está configurado.'); return }
+    if (authPassword.length < 6) { setNotice('A senha precisa ter pelo menos 6 caracteres.'); return }
+    setAuthLoading(true)
+    const result = authMode === 'signup'
+      ? await supabase.auth.signUp({ email: authEmail.trim(), password: authPassword })
+      : await supabase.auth.signInWithPassword({ email: authEmail.trim(), password: authPassword })
+    setAuthLoading(false)
+    if (result.error) { setNotice(result.error.message); return }
+    setAuthEmail('')
+    setAuthPassword('')
+    setAuthMode(null)
+    setNotice(authMode === 'signup' ? 'Cadastro iniciado. Confira seu e-mail para confirmar a conta, se solicitado.' : 'Login realizado com sucesso.')
   }
 
   async function submitPlant(e) {
@@ -125,7 +125,7 @@ export default function App() {
       <header className="topbar">
         <a className="brand" href="#"><span className="brand-mark"><Leaf size={22}/></span><span><strong>Ervas Vivas</strong><small>MAPA COLABORATIVO</small></span></a>
         <div className="account-actions">
-          {user ? <button className="ghost" onClick={() => supabase.auth.signOut()}><LogOut size={17}/> Sair</button> : <><button className="google-login" onClick={signInWithGoogle}><Chrome size={16}/> Google</button><button className="ghost" onClick={signUp}>Criar conta</button><button className="login" onClick={signIn}><LogIn size={16}/> Entrar</button></>}
+          {user ? <button className="ghost" onClick={() => supabase.auth.signOut()}><LogOut size={17}/> Sair</button> : <><button className="ghost" onClick={() => setAuthMode('signup')}>Criar conta</button><button className="login" onClick={() => setAuthMode('signin')}><LogIn size={16}/> Entrar</button></>}
         </div>
       </header>
 
@@ -156,6 +156,8 @@ export default function App() {
         <section className="info-strip"><div><LocateFixed/><strong>Localização colaborativa</strong><p>Marque o ponto no mapa ou use sua localização.</p></div><div><Camera/><strong>Fotos e registros</strong><p>Ajude a comunidade a reconhecer cada espécie.</p></div><div><ShieldCheck/><strong>Conteúdo revisado</strong><p>Novos cadastros aguardam aprovação.</p></div></section>
       </main>
       <footer>MAPA DAS ERVAS VIVAS <span>Feito para compartilhar conhecimento e preservar a natureza.</span></footer>
+
+      {authMode && <div className="modal-backdrop" onClick={() => { if (!authLoading) setAuthMode(null) }}><section className="modal auth-modal" onClick={e => e.stopPropagation()}><button type="button" className="close" onClick={() => setAuthMode(null)} disabled={authLoading}>×</button><span className="eyebrow">MAPA DAS ERVAS VIVAS</span><h2>{authMode === 'signup' ? 'Crie sua conta' : 'Bem-vindo de volta'}</h2><p className="form-help">{authMode === 'signup' ? 'Participe da comunidade e ajude a registrar a natureza ao nosso redor.' : 'Entre para colaborar com o mapa e acompanhar seus registros.'}</p><button type="button" className="google-auth-button" onClick={signInWithGoogle} disabled={authLoading}><Chrome size={18}/> Continuar com Google</button><div className="auth-divider"><span>ou continue com e-mail</span></div><form onSubmit={submitAuth}><label>E-mail<input type="email" autoComplete="email" required value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="voce@exemplo.com"/></label><label>Senha<input type="password" autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'} minLength={6} required value={authPassword} onChange={e => setAuthPassword(e.target.value)} placeholder="Mínimo de 6 caracteres"/></label><button className="primary submit" type="submit" disabled={authLoading}>{authLoading ? 'Aguarde...' : authMode === 'signup' ? 'Criar conta com e-mail' : 'Entrar com e-mail'}</button></form><p className="auth-switch">{authMode === 'signup' ? 'Já tem uma conta?' : 'Ainda não tem conta?'} <button type="button" onClick={() => setAuthMode(authMode === 'signup' ? 'signin' : 'signup')}>{authMode === 'signup' ? 'Entrar' : 'Criar conta'}</button></p></section></div>}
 
       {showForm && <div className="modal-backdrop" onClick={() => setShowForm(false)}><form className="modal" onSubmit={submitPlant} onClick={e => e.stopPropagation()}><button type="button" className="close" onClick={() => setShowForm(false)}>×</button><span className="eyebrow">NOVO REGISTRO</span><h2>Cadastrar uma planta</h2><p className="form-help">Preencha os dados e toque no mapa para marcar o local. O cadastro ficará pendente até a revisão.</p><label>Nome popular<input required value={form.name} onChange={e => setForm({...form, name:e.target.value})} placeholder="Ex.: Alecrim"/></label><label>Nome científico (opcional)<input value={form.scientific_name} onChange={e => setForm({...form, scientific_name:e.target.value})} placeholder="Ex.: Salvia rosmarinus"/></label><label>Categoria<select value={form.category} onChange={e => setForm({...form, category:e.target.value})}><option value="arvore">Árvore</option><option value="erva">Erva</option><option value="flor">Flor</option><option value="frutifera">Frutífera</option><option value="arbusto">Arbusto</option><option value="outra">Outra</option></select></label><label>Descrição<textarea value={form.description} onChange={e => setForm({...form, description:e.target.value})} placeholder="Conte como identificar a planta..."/></label><label>Tipo de local<select value={form.location_type} onChange={e => setForm({...form, location_type:e.target.value})}><option value="publico">Local público</option><option value="particular">Propriedade particular (com autorização)</option><option value="aproximado">Localização aproximada</option><option value="preservacao">Área de preservação</option></select></label><label className="file-label"><Camera size={17}/> Foto (opcional)<input type="file" accept="image/*" onChange={e => setPhoto(e.target.files?.[0] || null)}/></label><div className="selected-location">{selected ? 'Ponto marcado: ' + selected.lat.toFixed(5) + ', ' + selected.lng.toFixed(5) : 'Nenhum ponto marcado. Feche o formulário e toque no mapa.'}</div><button className="primary submit" type="submit">Enviar para aprovação</button></form></div>}
     </div>
