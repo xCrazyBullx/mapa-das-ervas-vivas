@@ -81,3 +81,18 @@
 .reject-button{background:#f8eeee;color:#9a3838}
 .moderation-actions button:disabled{opacity:.6;cursor:wait}
 @media(max-width:700px){.admin-panel{padding:16px}.admin-heading{align-items:flex-start}.admin-heading h2{font-size:24px}.pending-card{padding:13px}.moderation-actions{flex-direction:column}.moderation-nav{font-size:11px!important}}
+
+.notifications-panel{position:absolute;z-index:1200;top:76px;right:24px;width:min(390px,calc(100vw - 28px));max-height:70vh;overflow:auto;background:#fff;border:1px solid #e3e9df;border-radius:14px;box-shadow:0 16px 42px rgba(35,55,39,.16);padding:14px}
+.notifications-heading{display:flex;justify-content:space-between;align-items:center;padding:2px 3px 10px;color:#2c4534}
+.notifications-heading button{border:0;background:transparent;color:#52735a;font:600 12px 'DM Sans';cursor:pointer}
+.notification-nav{position:relative}
+.notification-count{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 4px;border-radius:99px;background:#b85b45;color:white;font-size:10px;font-weight:700}
+.notification-item{display:flex;align-items:flex-start;gap:10px;padding:12px 4px;border-top:1px solid #edf0eb}
+.notification-item>div{flex:1;min-width:0}
+.notification-item strong{font-size:13px;color:#304b37}
+.notification-item p{margin:5px 0;color:#59685b;font-size:12px;line-height:1.5}
+.notification-item small{color:#899489;font-size:10px}
+.notification-item>button{flex:0 0 auto;width:28px;height:28px;border:0;border-radius:50%;background:#edf4ec;color:#315b3c;display:grid;place-items:center;cursor:pointer}
+.notification-item.is-read{opacity:.65}
+.notifications-empty{padding:18px 5px;color:#788478;font-size:13px;text-align:center}
+@media(max-width:700px){.notifications-panel{top:68px;right:10px}.notification-nav{font-size:11px!important}.account-actions{gap:5px!important}}
