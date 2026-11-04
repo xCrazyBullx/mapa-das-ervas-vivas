@@ -1,12 +1,28 @@
 # Histórico de versões — Mapa das Ervas Vivas
 
+## [0.3.0] — 2026-11-03
+
+**Resumo:** adiciona busca de plantas pela área visível do mapa, no estilo “Pesquisar nesta área”.
+
+### Adicionado
+- O botão “Pesquisar nesta área” aparece após o usuário mover o mapa para uma região diferente.
+- A busca consulta no Supabase apenas plantas aprovadas cujas coordenadas estejam dentro dos limites geográficos visíveis.
+- A paginação de 200 registros continua funcionando dentro da área pesquisada.
+- A movimentação do mapa não dispara consultas automaticamente; a busca ocorre somente ao tocar no botão.
+
+### Validação
+- Implementação registrada na branch main.
+- Build, deploy e testes em dispositivo: pendentes.
+
+---
+
 As versões seguem o padrão SemVer: MAJOR.MINOR.PATCH.
 
 - **MAJOR**: mudança estrutural incompatível ou grande marco de estabilidade.
 - **MINOR**: nova funcionalidade ou melhoria relevante, mantendo compatibilidade.
 - **PATCH**: correção de bug, ajuste pequeno ou melhoria interna.
 
-Enquanto o projeto estiver antes da versão 1.0.0, a API e as funcionalidades ainda podem mudar. A versão atual é 0.2.1.
+Enquanto o projeto estiver antes da versão 1.0.0, a API e as funcionalidades ainda podem mudar. A versão atual é 0.3.0.
 
 ## [0.2.1] — 2026-11-03
 
