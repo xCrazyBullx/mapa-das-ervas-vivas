@@ -1,5 +1,21 @@
 # Histórico de versões — Mapa das Ervas Vivas
 
+## [0.3.3] — 2026-11-03
+
+**Resumo:** simplifica a administração de contas, concentrando busca, filtros e edição em uma tela própria de Usuários.
+
+### Alterado
+- O painel administrativo mostra apenas a entrada “Usuários”, sem lista de contas embutida.
+- Busca, filtros por nível, ordenação, paginação e edição ficam dentro da janela Usuários.
+- A lista de contas só é consultada quando o administrador abre Usuários, não ao entrar no painel de moderação.
+- A própria conta aparece identificada como “Sua conta”, sem seletor ou botão de edição.
+
+### Validação
+- Código registrado na branch main.
+- Build, deploy e teste visual: pendentes.
+
+---
+
 ## [0.3.2] — 2026-11-03
 
 **Resumo:** reduz o volume de dados da gestão de colaboradores e adiciona filtros e paginação.
@@ -56,7 +72,7 @@ As versões seguem o padrão SemVer: MAJOR.MINOR.PATCH.
 - **MINOR**: nova funcionalidade ou melhoria relevante, mantendo compatibilidade.
 - **PATCH**: correção de bug, ajuste pequeno ou melhoria interna.
 
-Enquanto o projeto estiver antes da versão 1.0.0, a API e as funcionalidades ainda podem mudar. A versão atual é 0.3.2.
+Enquanto o projeto estiver antes da versão 1.0.0, a API e as funcionalidades ainda podem mudar. A versão atual é 0.3.3.
 
 ## [0.2.1] — 2026-11-03
 
