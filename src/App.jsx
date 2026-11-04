@@ -34,6 +34,7 @@ export default function App() {
   const [showAdmin, setShowAdmin] = useState(false)
   const [pendingPlants, setPendingPlants] = useState([])
   const [pendingPhotos, setPendingPhotos] = useState({})
+  const [photoUrls, setPhotoUrls] = useState({})
   const [auditHistory, setAuditHistory] = useState({})
   const [auditNames, setAuditNames] = useState({})
   const [recentAudit, setRecentAudit] = useState([])
@@ -99,6 +100,21 @@ export default function App() {
     return () => { supabase.removeChannel(channel) }
   }, [user])
 
+  async function createPhotoUrls(photos) {
+    const entries = await Promise.all((photos || []).map(async photo => {
+      const { data, error } = await supabase.storage.from('plant-photos').createSignedUrl(photo.storage_path, 3600)
+      return [photo.id, error ? null : data?.signedUrl || null]
+    }))
+    setPhotoUrls(current => ({ ...current, ...Object.fromEntries(entries.filter(([, url]) => url)) }))
+  }
+
+  async function approvePlantPhoto(photo, status) {
+    const { error } = await supabase.from('plant_photos').update({ status }).eq('id', photo.id)
+    if (error) { setNotice('Não foi possível atualizar a foto: ' + error.message); return }
+    setPendingPhotos(groups => ({ ...groups, [photo.plant_id]: (groups[photo.plant_id] || []).map(item => item.id === photo.id ? { ...item, status } : item) }))
+    setNotice(status === 'approved' ? 'Foto aprovada.' : 'Foto rejeitada e mantida fora do mapa.')
+  }
+
   async function loadPendingPlants() {
     if (!user || !['admin', 'moderator'].includes(userRole)) return
     setAdminLoading(true)
@@ -149,6 +165,7 @@ export default function App() {
         const logGroups = {}
         ;(logs ?? []).forEach(log => { (logGroups[log.plant_id] ||= []).push(log) })
         setPendingPhotos(photoGroups)
+        await createPhotoUrls(photos ?? [])
         setAuditHistory(logGroups)
         const actorIds = [...new Set((logs ?? []).map(log => log.actor_id).filter(Boolean))]
         if (actorIds.length) {
@@ -284,7 +301,7 @@ export default function App() {
       const path = user.id + '/' + data.id + '/' + Date.now() + '.' + ext
       const upload = await supabase.storage.from('plant-photos').upload(path, photo)
       if (!upload.error) {
-        await supabase.from('plant_photos').insert({ plant_id: data.id, storage_path: path, caption: 'Foto enviada no cadastro', uploaded_by: user.id })
+        await supabase.from('plant_photos').insert({ plant_id: data.id, storage_path: path, caption: 'Foto enviada no cadastro', uploaded_by: user.id, status: 'pending' })
       } else {
         setNotice('Planta enviada, mas houve falha no envio da foto: ' + upload.error.message)
         setShowForm(false)
@@ -345,8 +362,8 @@ export default function App() {
             <div className="pending-title"><div><h3>{plant.common_name}</h3><span>{plant.scientific_name || 'Nome científico não informado'} · {plant.category}</span></div><span className="pending-status">Pendente</span></div>
             {plant.description && <p>{plant.description}</p>}
             {(pendingPhotos[plant.id] || []).length > 0 && <div className="moderation-photos"><strong>Fotos enviadas</strong><div className="moderation-photo-grid">{pendingPhotos[plant.id].map(photo => {
-              const imageUrl = supabase.storage.from('plant-photos').getPublicUrl(photo.storage_path).data.publicUrl
-              return <figure key={photo.id}><a href={imageUrl} target="_blank" rel="noreferrer"><img src={imageUrl} alt={photo.caption || 'Foto enviada pelo colaborador'}/></a><figcaption>{photo.caption || 'Sem legenda'}<button type="button" onClick={() => removePlantPhoto(photo)}>Remover foto</button></figcaption></figure>
+              const imageUrl = photoUrls[photo.id]
+              return <figure key={photo.id}>{imageUrl ? <a href={imageUrl} target="_blank" rel="noreferrer"><img src={imageUrl} alt={photo.caption || 'Foto enviada pelo colaborador'}/></a> : <div className="photo-unavailable">Prévia indisponível</div>}<figcaption>{photo.caption || 'Sem legenda'}<span className={'photo-status ' + photo.status}>{photo.status === 'approved' ? 'Aprovada' : photo.status === 'rejected' ? 'Rejeitada' : 'Pendente'}</span>{photo.status === 'pending' && <div className="photo-review-actions"><button type="button" onClick={() => approvePlantPhoto(photo, 'approved')}>Aprovar foto</button><button type="button" onClick={() => approvePlantPhoto(photo, 'rejected')}>Rejeitar foto</button></div>}<button type="button" onClick={() => removePlantPhoto(photo)}>Remover foto</button></figcaption></figure>
             })}</div></div>}
             <p className="pending-coordinates"><MapPin size={14}/> {Number(plant.latitude).toFixed(5)}, {Number(plant.longitude).toFixed(5)} · {plant.location_type}</p>
             <a href={'https://www.google.com/maps?q=' + plant.latitude + ',' + plant.longitude} target="_blank" rel="noreferrer">Ver localização no mapa</a>
