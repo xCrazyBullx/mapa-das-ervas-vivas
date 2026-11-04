@@ -238,3 +238,9 @@
 /* Paginação econômica do mapa */
 .map-load-more{display:flex;justify-content:center;padding:14px 0 4px}
 .map-load-more button{min-width:190px;justify-content:center}
+
+/* Busca manual da área visível, inspirada no Google Maps */
+.map-wrap{position:relative}
+.map-search-area{position:absolute;z-index:500;top:14px;left:50%;transform:translateX(-50%);max-width:calc(100% - 28px);padding:11px 18px;border:1px solid #d8e3d7;border-radius:999px;background:#fff;color:#286b63;box-shadow:0 2px 8px #1d352522;font:600 13px 'DM Sans';white-space:nowrap;cursor:pointer}
+.map-search-area:hover{background:#f4faf6}
+.map-search-area:disabled{opacity:.7;cursor:wait}
