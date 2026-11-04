@@ -265,3 +265,13 @@
 .collaborator-pagination{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:14px;color:#667366;font-size:12px}
 .collaborator-pagination button{background:#fff;color:#315b3c}
 @media(max-width:700px){.collaborator-filters{grid-template-columns:1fr 1fr}.collaborator-filters input{grid-column:1/-1}.collaborator-search-button{grid-column:1/-1}.collaborator-pagination{justify-content:space-between}}
+
+/* Área de usuários acessada por uma única ação */
+.users-entry{display:flex;align-items:center;justify-content:space-between;gap:18px}
+.users-entry>div{min-width:0}
+.users-open-button{flex:0 0 auto;border:0;border-radius:9px;padding:11px 17px;background:#28523b;color:#fff;font:600 12px 'DM Sans';cursor:pointer}
+.users-modal{width:min(760px,100%);gap:12px}
+.users-modal h2{margin:0;color:#2c4534;font:600 26px 'Playfair Display',serif}
+.users-modal .collaborator-filters{margin-top:4px}
+.users-backdrop{z-index:1100}
+@media(max-width:700px){.users-entry{align-items:flex-start;flex-direction:column}.users-open-button{width:100%}.users-modal{max-height:90vh;padding:25px 16px 18px}}
