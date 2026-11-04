@@ -1,5 +1,22 @@
 # Histórico de versões — Mapa das Ervas Vivas
 
+## [0.3.5] — 2026-11-04
+
+**Resumo:** adiciona encerramento automático de sessões após períodos de inatividade, com aviso prévio.
+
+### Segurança
+- Colaboradores: encerramento após 7 dias sem atividade.
+- Moderadores e administradores: encerramento após 30 minutos sem atividade.
+- Aviso exibido nos 5 minutos anteriores ao encerramento, com opção de continuar conectado.
+- Atividade sincronizada entre abas do mesmo navegador; ao expirar, somente a sessão local é encerrada.
+- Política implementada no frontend. Os limites nativos de sessão do Supabase no servidor são recursos disponíveis apenas em planos Pro ou superiores, portanto não foram alteradas configurações pagas.
+
+### Validação
+- Código e versionamento registrados na branch main.
+- Build, deploy e testes reais: pendentes.
+
+---
+
 ## [0.3.4] — 2026-11-03
 
 **Resumo:** atualiza a linguagem do botão de contribuição e melhora o alinhamento do nome com a marca no cabeçalho.
