@@ -36,6 +36,8 @@ export default function App() {
   const [pendingPhotos, setPendingPhotos] = useState({})
   const [auditHistory, setAuditHistory] = useState({})
   const [auditNames, setAuditNames] = useState({})
+  const [collaborators, setCollaborators] = useState([])
+  const [mapHealth, setMapHealth] = useState({ invalid: 0, oldPending: 0, possibleDuplicates: 0 })
   const [adminLoading, setAdminLoading] = useState(false)
   const [moderationNotes, setModerationNotes] = useState({})
   const [moderatingId, setModeratingId] = useState(null)
@@ -99,6 +101,25 @@ export default function App() {
   async function loadPendingPlants() {
     if (!user || !['admin', 'moderator'].includes(userRole)) return
     setAdminLoading(true)
+    if (userRole === 'admin') {
+      const [{ data: people }, { data: allPlants }] = await Promise.all([
+        supabase.from('profiles').select('id,display_name,role').order('created_at', { ascending: false }).limit(200),
+        supabase.from('plants').select('id,common_name,status,latitude,longitude,created_at').limit(2000)
+      ])
+      setCollaborators(people ?? [])
+      const rows = allPlants ?? []
+      const invalid = rows.filter(p => p.latitude == null || p.longitude == null || Math.abs(Number(p.latitude)) > 90 || Math.abs(Number(p.longitude)) > 180).length
+      const oldPending = rows.filter(p => p.status === 'pending' && Date.now() - new Date(p.created_at).getTime() > 30 * 86400000).length
+      const seen = new Set()
+      let possibleDuplicates = 0
+      for (const plant of rows) {
+        if (plant.latitude == null || plant.longitude == null) continue
+        const key = (plant.common_name || '').trim().toLocaleLowerCase('pt-BR') + ':' + Number(plant.latitude).toFixed(3) + ':' + Number(plant.longitude).toFixed(3)
+        if (seen.has(key)) possibleDuplicates++
+        else seen.add(key)
+      }
+      setMapHealth({ invalid, oldPending, possibleDuplicates })
+    }
     const { data, error } = await supabase.from('plants').select('*').eq('status', 'pending').order('created_at', { ascending: true })
     if (error) {
       setNotice('Não foi possível carregar a fila de moderação: ' + error.message)
@@ -128,6 +149,14 @@ export default function App() {
       }
     }
     setAdminLoading(false)
+  }
+
+  async function changeCollaboratorRole(person, role) {
+    if (userRole !== 'admin' || person.id === user.id) return
+    const { error } = await supabase.from('profiles').update({ role }).eq('id', person.id)
+    if (error) { setNotice('Não foi possível alterar o papel: ' + error.message); return }
+    setCollaborators(items => items.map(item => item.id === person.id ? { ...item, role } : item))
+    setNotice('Papel do colaborador atualizado.')
   }
 
   async function removePlantPhoto(photo) {
@@ -296,6 +325,8 @@ export default function App() {
 
         {showAdmin && ['admin', 'moderator'].includes(userRole) && <section className="admin-panel">
           <div className="admin-heading"><div><span className="eyebrow">ÁREA RESTRITA</span><h2>Painel de moderação</h2><p>Revise os registros enviados pela comunidade antes de publicá-los.</p></div><button className="ghost" onClick={loadPendingPlants} disabled={adminLoading}>Atualizar fila</button></div>
+          {userRole === 'admin' && <><section className="admin-subsection"><h3>Colaboradores</h3><p>Gerencie os níveis de acesso. Seu próprio papel de administrador fica protegido.</p>{collaborators.length === 0 ? <p className="admin-empty">Nenhum perfil encontrado.</p> : collaborators.map(person => <div className="collaborator-row" key={person.id}><div><strong>{person.display_name || 'Colaborador'}</strong><small>{person.id === user.id ? 'Sua conta' : 'Conta cadastrada'}</small></div><select aria-label={'Papel de ' + (person.display_name || 'colaborador')} value={person.role} disabled={person.id === user.id} onChange={e => changeCollaboratorRole(person, e.target.value)}><option value="contributor">Colaborador</option><option value="moderator">Moderador</option><option value="admin">Administrador</option></select></div>)}</section>
+          <section className="admin-subsection"><h3>Saúde do mapa</h3><div className="health-grid"><div><strong>{mapHealth.invalid}</strong><span>Coordenadas ausentes ou inválidas</span></div><div><strong>{mapHealth.possibleDuplicates}</strong><span>Possíveis duplicidades</span></div><div><strong>{mapHealth.oldPending}</strong><span>Pendentes há mais de 30 dias</span></div></div><p className="health-note">As duplicidades são apenas sugestões automáticas por nome e proximidade; precisam de conferência humana.</p></section></>}
           <div className="admin-count">{pendingPlants.length} publicação(ões) aguardando análise</div>
           {adminLoading ? <p className="admin-empty">Carregando publicações...</p> : pendingPlants.length === 0 ? <p className="admin-empty">Nenhuma publicação pendente no momento.</p> : pendingPlants.map(plant => <article className="pending-card" key={plant.id}>
             <div className="pending-title"><div><h3>{plant.common_name}</h3><span>{plant.scientific_name || 'Nome científico não informado'} · {plant.category}</span></div><span className="pending-status">Pendente</span></div>
