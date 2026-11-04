@@ -199,3 +199,35 @@
 .plant-map-marker-pin span{position:absolute;width:6px;height:6px;left:4px;top:4px;border-radius:50%;background:#fff}
 .visitor-map-marker-pulse{position:absolute;inset:2px;border-radius:50%;background:#3979d8aa;display:grid;place-items:center;box-shadow:0 0 0 7px #3979d833}
 .visitor-map-marker-pulse span{width:10px;height:10px;border-radius:50%;background:#2468cf;border:2px solid #fff;box-shadow:0 1px 4px #17291e66}
+
+/* Cores pastel compartilhadas entre filtros e marcadores do mapa */
+.category-filters .category-filter{display:inline-flex;align-items:center;gap:8px;border-width:1px;background:#f3f5f0;color:#425447}
+.category-color-dot{width:10px;height:10px;flex:0 0 10px;border-radius:50%;background:#dce7dc}
+.category-filter-arvore{background:#edf5eb!important;border-color:#c7ddc3!important}
+.category-filter-arvore .category-color-dot{background:#83b47e}
+.category-filter-erva{background:#edf6f2!important;border-color:#c5dfd5!important}
+.category-filter-erva .category-color-dot{background:#79b99d}
+.category-filter-flor{background:#fbf0f4!important;border-color:#f0cbd8!important}
+.category-filter-flor .category-color-dot{background:#d88da9}
+.category-filter-frutifera{background:#fcf3eb!important;border-color:#f2d2b8!important}
+.category-filter-frutifera .category-color-dot{background:#d99a68}
+.category-filter-arbusto{background:#f4f0fa!important;border-color:#d8cbed!important}
+.category-filter-arbusto .category-color-dot{background:#a58acb}
+.category-filter-outra{background:#f7f5ed!important;border-color:#e5dfc9!important}
+.category-filter-outra .category-color-dot{background:#b7a96e}
+.category-filter-todas{background:#f1f5ef!important;border-color:#dce7dc!important}
+.category-filter-todas .category-color-dot{background:#78936c}
+.category-filters .category-filter.active{color:#263d2d;border-width:2px;box-shadow:0 2px 8px #243f3012}
+.category-filters .category-filter-arvore.active{background:#dcebd8!important}
+.category-filters .category-filter-erva.active{background:#dcefe7!important}
+.category-filters .category-filter-flor.active{background:#f7e1e9!important}
+.category-filters .category-filter-frutifera.active{background:#f8e5d5!important}
+.category-filters .category-filter-arbusto.active{background:#e9e0f4!important}
+.category-filters .category-filter-outra.active{background:#eee9d7!important}
+.category-filters .category-filter-todas.active{background:#e2ebdf!important}
+.plant-map-marker-arvore .plant-map-marker-pin{background:#83b47e}
+.plant-map-marker-erva .plant-map-marker-pin{background:#79b99d}
+.plant-map-marker-flor .plant-map-marker-pin{background:#d88da9}
+.plant-map-marker-frutifera .plant-map-marker-pin{background:#d99a68}
+.plant-map-marker-arbusto .plant-map-marker-pin{background:#a58acb}
+.plant-map-marker-outra .plant-map-marker-pin{background:#b7a96e}
