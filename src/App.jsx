@@ -24,7 +24,7 @@ export default function App() {
   const [showForm, setShowForm] = useState(false)
   const [selected, setSelected] = useState(null)
   const [notice, setNotice] = useState('')
-  const [form, setForm] = useState({ name: '', scientific_name: '', description: '', location_type: 'public' })
+  const [form, setForm] = useState({ name: '', scientific_name: '', description: '', location_type: 'publico' })
   const [photo, setPhoto] = useState(null)
 
   useEffect(() => {
@@ -92,7 +92,7 @@ export default function App() {
     }
     setNotice('Cadastro enviado para análise de um moderador. Ele ainda não está público.')
     setShowForm(false)
-    setForm({ name: '', scientific_name: '', description: '', location_type: 'public' })
+    setForm({ name: '', scientific_name: '', description: '', location_type: 'publico' })
     setPhoto(null)
     setSelected(null)
   }
