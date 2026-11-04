@@ -1,5 +1,21 @@
 # Histórico de versões — Mapa das Ervas Vivas
 
+## [0.3.1] — 2026-11-03
+
+**Resumo:** torna a gestão de papéis dos colaboradores mais clara e segura contra alterações acidentais.
+
+### Alterado
+- A lista mostra a função atual de cada pessoa sem apresentar um seletor ativo.
+- A alteração de nível exige tocar em “Editar”, escolher a nova função e confirmar em “Salvar”.
+- “Cancelar” fecha a edição sem alterar o papel salvo.
+- O próprio administrador continua protegido e não pode editar seu nível por esta tela.
+
+### Validação
+- Código e histórico registrados na branch main.
+- Build, deploy e teste real da alteração de papéis: pendentes.
+
+---
+
 ## [0.3.0] — 2026-11-03
 
 **Resumo:** adiciona busca de plantas pela área visível do mapa, no estilo “Pesquisar nesta área”.
@@ -22,7 +38,7 @@ As versões seguem o padrão SemVer: MAJOR.MINOR.PATCH.
 - **MINOR**: nova funcionalidade ou melhoria relevante, mantendo compatibilidade.
 - **PATCH**: correção de bug, ajuste pequeno ou melhoria interna.
 
-Enquanto o projeto estiver antes da versão 1.0.0, a API e as funcionalidades ainda podem mudar. A versão atual é 0.3.0.
+Enquanto o projeto estiver antes da versão 1.0.0, a API e as funcionalidades ainda podem mudar. A versão atual é 0.3.1.
 
 ## [0.2.1] — 2026-11-03
 
