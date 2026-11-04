@@ -195,7 +195,7 @@ export default function App() {
     if (userRole !== 'admin' || collaboratorsLoading) return
     setCollaboratorsLoading(true)
     let query = supabase.from('profiles').select('id,display_name,role,created_at')
-    if (searchTerm.trim()) query = query.ilike('display_name', '%' + searchTerm.trim().replace(/[%_]/g, '\\  async function loadPendingPlants() {') + '%')
+    if (searchTerm.trim()) query = query.ilike('display_name', '%' + searchTerm.trim() + '%')
     if (roleFilter !== 'all') query = query.eq('role', roleFilter)
     if (sort === 'name') query = query.order('display_name', { ascending: true, nullsFirst: false })
     else query = query.order('created_at', { ascending: sort !== 'newest', nullsFirst: false })
