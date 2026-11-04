@@ -233,3 +233,8 @@
 .plant-map-marker-outra .plant-map-marker-pin{background:#b7a96e}
 
 .brand-mark{background:transparent;border-radius:0;overflow:visible}.brand-mark img{display:block;width:48px;height:48px;object-fit:contain}
+
+
+/* Paginação econômica do mapa */
+.map-load-more{display:flex;justify-content:center;padding:14px 0 4px}
+.map-load-more button{min-width:190px;justify-content:center}
