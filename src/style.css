@@ -131,3 +131,12 @@
 .recent-audit-row strong{font-size:12px;color:#435747}
 .recent-audit-row span,.recent-audit-row small,.recent-audit-row time{font-size:10px;color:#829082;line-height:1.4}
 .recent-audit-row time{white-space:nowrap}
+
+
+.photo-unavailable{height:112px;display:grid;place-items:center;background:#f1f4ef;color:#8a9689;font-size:10px}
+.photo-status{display:inline-block;padding:4px 7px;border-radius:6px;background:#fff4df;color:#805b1f;font-weight:700}
+.photo-status.approved{background:#edf4ec;color:#315b3c}
+.photo-status.rejected{background:#f8eeee;color:#9a3838}
+.photo-review-actions{display:flex;gap:5px}
+.photo-review-actions button{flex:1;background:#edf4ec!important;color:#315b3c!important}
+.photo-review-actions button+button{background:#f8eeee!important;color:#9a3838!important}
