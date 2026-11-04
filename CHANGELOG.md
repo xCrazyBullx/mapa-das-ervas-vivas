@@ -1,5 +1,18 @@
 # Histórico de versões — Mapa das Ervas Vivas
 
+## [0.3.7] — 2026-11-04
+
+**Resumo:** corrige a tela branca ao usar a localização atual no cadastro de plantas.
+
+### Corrigido
+- O marcador do ponto selecionado usava uma variável `markerIcon` inexistente. Agora utiliza o gerador de ícones já definido no aplicativo, evitando a exceção de renderização após a captura do GPS.
+
+### Validação
+- Correção registrada na branch main.
+- Build, deploy e teste real no iPhone: pendentes.
+
+---
+
 ## [0.3.6] — 2026-11-04
 
 **Resumo:** adiciona endereço aproximado editável ao cadastro, mantendo as coordenadas exatas para navegação.
