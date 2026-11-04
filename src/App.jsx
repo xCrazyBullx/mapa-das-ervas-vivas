@@ -580,7 +580,7 @@ export default function App() {
             <div className="map-hint"><MapPin size={15}/> {selectingLocation ? 'Toque no ponto exato da planta para continuar' : 'Use o mapa para explorar e localizar plantas'}</div>
           </div>
           <div className="map-footer"><span><span className="dot"/> {loading ? 'Carregando...' : plants.length + ' plantas carregadas'}</span><span><ShieldCheck size={15}/> Publicações passam por moderação</span></div>
-          {hasMorePlants && <div className="map-load-more"><button className="secondary" type="button" onClick={() => loadPlants(true)} disabled={loadingMorePlants}>{loadingMorePlants ? 'Carregando...' : 'Carregar mais plantas'}</button></div>}
+          {hasMorePlants && <div className="map-load-more"><button className="primary" type="button" onClick={() => loadPlants(true)} disabled={loadingMorePlants}>{loadingMorePlants ? 'Carregando...' : 'Carregar mais plantas'}</button></div>}
         </section>
 
         <section className="info-strip"><div><LocateFixed/><strong>Localização colaborativa</strong><p>Marque o ponto no mapa ou use sua localização.</p></div><div><Camera/><strong>Fotos e registros</strong><p>Ajude a comunidade a reconhecer cada espécie.</p></div><div><ShieldCheck/><strong>Conteúdo revisado</strong><p>Novos cadastros aguardam aprovação.</p></div></section>
