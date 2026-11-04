@@ -62,6 +62,8 @@ export default function App() {
   const [authPassword, setAuthPassword] = useState('')
   const [authLoading, setAuthLoading] = useState(false)
   const [selected, setSelected] = useState(null)
+  const [visitorLocation, setVisitorLocation] = useState(null)
+  const [locationStatus, setLocationStatus] = useState('idle')
   const [notice, setNotice] = useState('')
   const [form, setForm] = useState({ name: '', scientific_name: '', description: '', category: 'erva', location_type: 'publico' })
   const [photo, setPhoto] = useState(null)
@@ -84,6 +86,33 @@ export default function App() {
     loadRole()
     return () => { active = false }
   }, [user])
+
+  useEffect(() => {
+    if (!('geolocation' in navigator)) { setLocationStatus('unavailable'); return }
+    setLocationStatus('requesting')
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        setVisitorLocation({ lat: position.coords.latitude, lng: position.coords.longitude })
+        setLocationStatus('granted')
+      },
+      error => setLocationStatus(error.code === 1 ? 'denied' : 'unavailable'),
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+    )
+  }, [])
+
+  async function requestVisitorLocation() {
+    if (!navigator.geolocation) { setLocationStatus('unavailable'); return }
+    setLocationStatus('requesting')
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        setVisitorLocation({ lat: position.coords.latitude, lng: position.coords.longitude })
+        setLocationStatus('granted')
+        setNotice('Mapa centralizado na sua localização.')
+      },
+      error => setLocationStatus(error.code === 1 ? 'denied' : 'unavailable'),
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+    )
+  }
 
   async function loadNotifications() {
     if (!user || !supabaseReady) return
@@ -388,7 +417,18 @@ export default function App() {
     if (!error) loadPlants()
   }
 
+  function distanceKm(a, b) {
+    const radians = value => value * Math.PI / 180
+    const dLat = radians(b.lat - a.lat)
+    const dLng = radians(b.lng - a.lng)
+    const lat1 = radians(a.lat)
+    const lat2 = radians(b.lat)
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
+    return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
+  }
   const visiblePlants = plants.filter(p => [p.common_name, p.scientific_name, p.description].filter(Boolean).join(' ').toLowerCase().includes(search.toLowerCase()) && (selectedCategory === 'todas' || p.category === selectedCategory))
+    .map(p => ({ ...p, distance: visitorLocation ? distanceKm(visitorLocation, { lat: Number(p.latitude), lng: Number(p.longitude) }) : null }))
+    .sort((a, b) => visitorLocation ? a.distance - b.distance : 0)
   const filteredAudit = recentAudit.filter(log => (auditFilter === 'all' || log.action === auditFilter) && (log.plantName + ' ' + log.actorName + ' ' + (log.new_data?.moderation_note || '')).toLowerCase().includes(auditSearch.toLowerCase()))
   const categories = [{ value: 'todas', label: 'Todas' }, { value: 'arvore', label: 'Árvores' }, { value: 'erva', label: 'Ervas' }, { value: 'flor', label: 'Flores' }, { value: 'frutifera', label: 'Frutíferas' }, { value: 'arbusto', label: 'Arbustos' }, { value: 'outra', label: 'Outras' }]
 
@@ -451,12 +491,15 @@ export default function App() {
 
         <section className="map-section">
           <div className="map-heading"><div><span className="eyebrow">EXPLORAR</span><h2>Explore a natureza ao seu redor</h2></div><label className="search"><Search size={17}/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Busque por nome, espécie, erva, flor ou árvore..."/></label></div>
+          {visitorLocation && <div className="location-nearby-note"><LocateFixed size={15}/> Mostrando plantas mais próximas de você. <button type="button" onClick={() => { setVisitorLocation(null); setLocationStatus('idle') }}>Desativar proximidade</button></div>}
+          {!visitorLocation && locationStatus !== 'requesting' && <div className="location-nearby-note"><LocateFixed size={15}/>{locationStatus === 'denied' ? 'Localização não autorizada.' : locationStatus === 'unavailable' ? 'Não foi possível obter sua localização.' : 'Ative sua localização para encontrar plantas próximas.'}<button type="button" onClick={requestVisitorLocation}>Usar minha localização</button></div>}
           <div className="category-filters" aria-label="Filtrar por categoria">{categories.map(category => <button key={category.value} type="button" className={selectedCategory === category.value ? 'active' : ''} onClick={() => setSelectedCategory(category.value)}>{category.label}</button>)}</div>
           <div className="map-wrap">
-            <MapContainer center={[-23.3103, -51.1628]} zoom={12} scrollWheelZoom={true} className="map">
+            <MapContainer center={visitorLocation ? [visitorLocation.lat, visitorLocation.lng] : [-23.3103, -51.1628]} zoom={visitorLocation ? 14 : 12} scrollWheelZoom={true} className="map">
               <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
-              <SelectLocation onSelect={handleMapSelection}/><RecenterMap position={selected}/>
+              <SelectLocation onSelect={handleMapSelection}/><RecenterMap position={selected || visitorLocation}/>
               {visiblePlants.map(p => <Marker key={p.id} position={[p.latitude, p.longitude]} icon={markerIcon}><Popup><strong>{p.common_name}</strong><p>{p.description || 'Sem descrição.'}</p><small>{p.scientific_name || ''}</small><p><button className="popup-action" onClick={() => confirmPlant(p)}>Confirmar presença</button> <button className="popup-report-action" onClick={() => { if (!user) { setAuthMode('signin'); setNotice('Entre na sua conta para denunciar uma publicação.') } else { setReportTarget(p); setReportDetails('') } }}>Denunciar</button></p><a target="_blank" rel="noreferrer" href={'https://www.google.com/maps?q=' + p.latitude + ',' + p.longitude}>Abrir no Google Maps</a></Popup></Marker>)}
+              {visitorLocation && <Marker position={[visitorLocation.lat, visitorLocation.lng]}><Popup>Você está aqui (localização visível apenas neste navegador)</Popup></Marker>}
               {selected && <Marker position={[selected.lat, selected.lng]} icon={markerIcon}><Popup>Local escolhido para novo cadastro</Popup></Marker>}
             </MapContainer>
             <div className="map-hint"><MapPin size={15}/> {selectingLocation ? 'Toque no ponto exato da planta para continuar' : 'Use o mapa para explorar e localizar plantas'}</div>
