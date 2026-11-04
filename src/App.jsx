@@ -101,8 +101,9 @@ export default function App() {
   const [visitorLocation, setVisitorLocation] = useState(null)
   const [locationStatus, setLocationStatus] = useState('idle')
   const [notice, setNotice] = useState('')
-  const [form, setForm] = useState({ name: '', scientific_name: '', description: '', category: 'erva', location_type: 'publico' })
+  const [form, setForm] = useState({ name: '', scientific_name: '', description: '', category: 'erva', location_type: 'publico', street: '', neighborhood: '', city: '', state: '' })
   const [photos, setPhotos] = useState([])
+  const [addressLookupLoading, setAddressLookupLoading] = useState(false)
 
   useEffect(() => {
     if (!supabaseReady) { setLoading(false); return }
@@ -320,7 +321,7 @@ export default function App() {
       setHealthIssues(issues)
       setMapHealth({ invalid, oldPending, possibleDuplicates })
     }
-    const { data, error } = await supabase.from('plants').select('id,common_name,scientific_name,description,category,latitude,longitude,location_type,status,created_at,created_by').eq('status', 'pending').order('created_at', { ascending: true }).limit(100)
+    const { data, error } = await supabase.from('plants').select('id,common_name,scientific_name,description,category,latitude,longitude,address,city,state,location_type,status,created_at,created_by').eq('status', 'pending').order('created_at', { ascending: true }).limit(100)
     if (error) {
       setNotice('Não foi possível carregar a fila de moderação: ' + error.message)
     } else {
@@ -426,7 +427,7 @@ export default function App() {
 
     let query = supabase
       .from('plants')
-      .select('id,common_name,scientific_name,description,category,latitude,longitude,created_at')
+      .select('id,common_name,scientific_name,description,category,latitude,longitude,address,city,state,created_at')
       .eq('status', 'approved')
     if (bounds) query = query
       .gte('latitude', bounds.south)
@@ -501,6 +502,7 @@ export default function App() {
 
   function handleMapSelection(point) {
     setSelected(point)
+    setForm(current => ({ ...current, street: '', neighborhood: '', city: '', state: '' }))
     if (selectingLocation) {
       setSelectingLocation(false)
       setShowForm(true)
@@ -545,6 +547,47 @@ export default function App() {
     throw new Error('Não foi possível reduzir uma das fotos para menos de 1 MB. Tente outra imagem.')
   }
 
+  async function lookupSelectedAddress() {
+    if (!selected || addressLookupLoading) return
+    const cacheKey = 'ervas-vivas-reverse-' + selected.lat.toFixed(5) + '-' + selected.lng.toFixed(5)
+    try {
+      const cached = sessionStorage.getItem(cacheKey)
+      if (cached) {
+        setForm(current => ({ ...current, ...JSON.parse(cached) }))
+        setNotice('Sugestão de endereço recuperada. Confira e edite se necessário.')
+        return
+      }
+    } catch { /* Cache inválido: consulta novamente quando permitido. */ }
+    const lastRequest = Number(localStorage.getItem('ervas-vivas-last-geocode-request') || 0)
+    if (Date.now() - lastRequest < 1200) {
+      setNotice('Aguarde um instante antes de consultar outro endereço.')
+      return
+    }
+    setAddressLookupLoading(true)
+    localStorage.setItem('ervas-vivas-last-geocode-request', String(Date.now()))
+    try {
+      const params = new URLSearchParams({ lat: String(selected.lat), lon: String(selected.lng), format: 'jsonv2', addressdetails: '1', 'accept-language': 'pt-BR' })
+      const response = await fetch('https://nominatim.openstreetmap.org/reverse?' + params.toString(), { headers: { Accept: 'application/json' } })
+      if (!response.ok) throw new Error('Serviço de endereço indisponível no momento.')
+      const result = await response.json()
+      const parts = result.address || {}
+      const address = {
+        street: parts.road || parts.pedestrian || parts.footway || parts.path || '',
+        neighborhood: parts.neighbourhood || parts.suburb || parts.quarter || parts.city_district || '',
+        city: parts.city || parts.town || parts.village || parts.municipality || '',
+        state: parts.state || '',
+      }
+      if (!address.street && !address.neighborhood && !address.city) throw new Error('Não encontramos um endereço para este ponto. Você pode preencher manualmente.')
+      setForm(current => ({ ...current, ...address }))
+      try { sessionStorage.setItem(cacheKey, JSON.stringify(address)) } catch { /* Cache opcional. */ }
+      setNotice('Endereço sugerido pelo OpenStreetMap. Revise os campos; o número do imóvel não é utilizado.')
+    } catch (error) {
+      setNotice(error.message || 'Não foi possível localizar o endereço. Preencha manualmente.')
+    } finally {
+      setAddressLookupLoading(false)
+    }
+  }
+
   async function submitPlant(e) {
     e.preventDefault()
     if (!user) { setNotice('Entre na sua conta para enviar uma planta.'); return }
@@ -560,6 +603,9 @@ export default function App() {
       category: form.category,
       latitude: selected.lat,
       longitude: selected.lng,
+      address: [form.street.trim(), form.neighborhood.trim()].filter(Boolean).join(', ') || null,
+      city: form.city.trim() || null,
+      state: form.state.trim() || null,
       location_type: form.location_type,
       status: 'pending',
       created_by: user.id,
@@ -583,7 +629,7 @@ export default function App() {
     }
     setNotice('Cadastro enviado para análise de um moderador. Ele ainda não está público.')
     setShowForm(false)
-    setForm({ name: '', scientific_name: '', description: '', category: 'erva', location_type: 'publico' })
+    setForm({ name: '', scientific_name: '', description: '', category: 'erva', location_type: 'publico', street: '', neighborhood: '', city: '', state: '' })
     setPhotos([])
     setSelected(null)
   }
@@ -676,7 +722,7 @@ export default function App() {
               const imageUrl = photoUrls[photo.id]
               return <figure key={photo.id}>{imageUrl ? <a href={imageUrl} target="_blank" rel="noreferrer"><img src={imageUrl} alt={photo.caption || 'Foto enviada pelo colaborador'}/></a> : <div className="photo-unavailable">Prévia indisponível</div>}<figcaption>{photo.caption || 'Sem legenda'}<span className={'photo-status ' + photo.status}>{photo.status === 'approved' ? 'Aprovada' : photo.status === 'rejected' ? 'Rejeitada' : 'Pendente'}</span>{photo.status === 'pending' && <div className="photo-review-actions"><button type="button" onClick={() => approvePlantPhoto(photo, 'approved')}>Aprovar foto</button><button type="button" onClick={() => approvePlantPhoto(photo, 'rejected')}>Rejeitar foto</button></div>}<button type="button" onClick={() => removePlantPhoto(photo)}>Remover foto</button></figcaption></figure>
             })}</div></div>}
-            <p className="pending-coordinates"><MapPin size={14}/> {Number(plant.latitude).toFixed(5)}, {Number(plant.longitude).toFixed(5)} · {plant.location_type}</p>
+            <p className="pending-coordinates"><MapPin size={14}/> {plant.address || 'Endereço não informado'}{plant.city ? ' · ' + plant.city : ''}{plant.state ? ' / ' + plant.state : ''} · {plant.location_type}</p>
             <a href={'https://www.google.com/maps?q=' + plant.latitude + ',' + plant.longitude} target="_blank" rel="noreferrer">Ver localização no mapa</a>
             <label>Observação da moderação<textarea value={moderationNotes[plant.id] || ''} onChange={e => setModerationNotes(notes => ({...notes, [plant.id]: e.target.value}))} placeholder="Explique o motivo caso precise rejeitar ou deixe uma orientação..."/></label>
             {(auditHistory[plant.id] || []).length > 0 && <details className="plant-history"><summary>Histórico ({auditHistory[plant.id].length})</summary>{auditHistory[plant.id].map(log => <div key={log.id}><strong>{log.action === 'created' ? 'Cadastro criado' : log.action === 'updated' ? 'Registro atualizado' : log.action}</strong><small>{auditNames[log.actor_id] || 'Sistema'} · {new Date(log.created_at).toLocaleString('pt-BR')}</small>{log.new_data?.moderation_note && <p>{log.new_data.moderation_note}</p>}</div>)}</details>}
@@ -693,7 +739,7 @@ export default function App() {
             <MapContainer center={visitorLocation ? [visitorLocation.lat, visitorLocation.lng] : [-23.3103, -51.1628]} zoom={visitorLocation ? 14 : 12} scrollWheelZoom={true} className="map">
               <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
               <SelectLocation onSelect={handleMapSelection}/><MapBoundsTracker onBoundsChange={handleMapBoundsChange}/><RecenterMap position={selected || visitorLocation}/>
-              {visiblePlants.map(p => <Marker key={p.id} position={[p.latitude, p.longitude]} icon={createPlantMarkerIcon(p.category)}><Popup><strong>{p.common_name}</strong><p>{p.description || 'Sem descrição.'}</p><small>{p.scientific_name || ''}</small><p><button className="popup-action" onClick={() => confirmPlant(p)}>Confirmar presença</button> <button className="popup-report-action" onClick={() => { if (!user) { setAuthMode('signin'); setNotice('Entre na sua conta para denunciar uma publicação.') } else { setReportTarget(p); setReportDetails('') } }}>Denunciar</button></p><a target="_blank" rel="noreferrer" href={'https://www.google.com/maps?q=' + p.latitude + ',' + p.longitude}>Abrir no Google Maps</a></Popup></Marker>)}
+              {visiblePlants.map(p => <Marker key={p.id} position={[p.latitude, p.longitude]} icon={createPlantMarkerIcon(p.category)}><Popup><strong>{p.common_name}</strong>{(p.address || p.city) && <p className="plant-popup-address">{[p.address, p.city, p.state].filter(Boolean).join(' · ')}</p>}<p>{p.description || 'Sem descrição.'}</p><small>{p.scientific_name || ''}</small><p><button className="popup-action" onClick={() => confirmPlant(p)}>Confirmar presença</button> <button className="popup-report-action" onClick={() => { if (!user) { setAuthMode('signin'); setNotice('Entre na sua conta para denunciar uma publicação.') } else { setReportTarget(p); setReportDetails('') } }}>Denunciar</button></p><a target="_blank" rel="noreferrer" href={'https://www.google.com/maps?q=' + p.latitude + ',' + p.longitude}>Abrir no Google Maps</a></Popup></Marker>)}
               {visitorLocation && <Marker position={[visitorLocation.lat, visitorLocation.lng]} icon={visitorIcon}><Popup>Você está aqui (localização visível apenas neste navegador)</Popup></Marker>}
               {selected && <Marker position={[selected.lat, selected.lng]} icon={markerIcon}><Popup>Local escolhido para novo cadastro</Popup></Marker>}
             </MapContainer>
@@ -708,7 +754,7 @@ export default function App() {
       </main>
       {sessionWarning && user && <div className="modal-backdrop session-warning-backdrop"><section className="modal session-warning" role="alertdialog" aria-modal="true" aria-labelledby="session-warning-title"><span className="eyebrow">SEGURANÇA DA CONTA</span><h2 id="session-warning-title">Sua sessão está prestes a expirar</h2><p className="form-help">Por segurança, encerraremos sua sessão após um período sem atividade. Se ainda estiver usando o mapa, continue conectado.</p><button type="button" className="primary submit" onClick={() => { const key = 'mapa-ervas-last-activity-' + user.id; const now = Date.now(); localStorage.setItem(key, String(now)); setSessionWarning(false) }}>Continuar conectado</button></section></div>}
 
-      <footer>MAPA DAS ERVAS VIVAS <span>Feito para compartilhar conhecimento e preservar a natureza.</span><small className="app-version">Versão 0.3.5</small></footer>
+      <footer>MAPA DAS ERVAS VIVAS <span>Feito para compartilhar conhecimento e preservar a natureza.</span><small className="app-version">Versão 0.3.6</small></footer>
 
       {reportTarget && <div className="modal-backdrop" onClick={() => { if (!submittingReport) setReportTarget(null) }}><form className="modal" onSubmit={submitPlantReport} onClick={e => e.stopPropagation()}><button type="button" className="close" onClick={() => setReportTarget(null)} disabled={submittingReport}>×</button><span className="eyebrow">CONTRIBUIÇÃO DA COMUNIDADE</span><h2>Denunciar publicação</h2><p className="form-help">Sua denúncia será enviada em privado para a equipe de moderação. Use este recurso para sinalizar problemas reais no registro.</p><strong className="report-form-plant">{reportTarget.common_name}</strong><label>Motivo<select value={reportReason} onChange={e => setReportReason(e.target.value)}><option value="informacao incorreta">Informação incorreta</option><option value="localizacao incorreta">Localização incorreta</option><option value="duplicidade">Publicação duplicada</option><option value="conteudo inadequado">Conteúdo inadequado</option><option value="risco ambiental">Risco ambiental ou acesso indevido</option><option value="outro">Outro motivo</option></select></label><label>Detalhes (opcional)<textarea value={reportDetails} onChange={e => setReportDetails(e.target.value)} maxLength={2000} placeholder="Explique o que precisa ser verificado..."/></label><button className="primary submit" type="submit" disabled={submittingReport}>{submittingReport ? 'Enviando...' : 'Enviar denúncia'}</button></form></div>}
 
@@ -716,7 +762,15 @@ export default function App() {
 
       {locationGate && <div className="modal-backdrop" onClick={() => setLocationGate(false)}><section className="modal location-gate" onClick={e => e.stopPropagation()}><button type="button" className="close" onClick={() => setLocationGate(false)}>×</button><span className="eyebrow">ANTES DE CADASTRAR</span><h2>Onde está a planta?</h2><p className="form-help">Para registrar uma planta, precisamos marcar no mapa o local onde ela está. Você pode compartilhar sua localização atual ou escolher o ponto manualmente.</p><button type="button" className="primary submit" onClick={requestCurrentLocation} disabled={locating}><LocateFixed size={18}/>{locating ? 'Obtendo localização...' : 'Usar minha localização atual'}</button><button type="button" className="manual-location-button" onClick={startManualLocation} disabled={locating}><MapPin size={18}/> Marcar manualmente no mapa</button><p className="location-privacy">O navegador pedirá sua autorização para acessar o GPS. Sua localização só será usada para posicionar este cadastro.</p></section></div>}
 
-      {showForm && <div className="modal-backdrop" onClick={() => setShowForm(false)}><form className="modal" onSubmit={submitPlant} onClick={e => e.stopPropagation()}><button type="button" className="close" onClick={() => setShowForm(false)}>×</button><span className="eyebrow">NOVO REGISTRO</span><h2>Cadastrar uma planta</h2><p className="form-help">Preencha os dados e toque no mapa para marcar o local. O cadastro ficará pendente até a revisão.</p><label>Nome popular<input required value={form.name} onChange={e => setForm({...form, name:e.target.value})} placeholder="Ex.: Alecrim"/></label><label>Nome científico (opcional)<input value={form.scientific_name} onChange={e => setForm({...form, scientific_name:e.target.value})} placeholder="Ex.: Salvia rosmarinus"/></label><label>Categoria<select value={form.category} onChange={e => setForm({...form, category:e.target.value})}><option value="arvore">Árvore</option><option value="erva">Erva</option><option value="flor">Flor</option><option value="frutifera">Frutífera</option><option value="arbusto">Arbusto</option><option value="outra">Outra</option></select></label><label>Descrição<textarea value={form.description} onChange={e => setForm({...form, description:e.target.value})} placeholder="Conte como identificar a planta..."/></label><label>Tipo de local<select value={form.location_type} onChange={e => setForm({...form, location_type:e.target.value})}><option value="publico">Local público</option><option value="particular">Propriedade particular (com autorização)</option><option value="aproximado">Localização aproximada</option><option value="preservacao">Área de preservação</option></select></label><label className="file-label"><Camera size={17}/> Fotos (opcional, até 3)<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e => { const selectedFiles = Array.from(e.target.files || []); if (selectedFiles.length > 3) { setNotice("Escolha no máximo 3 fotos."); e.target.value = ""; setPhotos([]); return } setPhotos(selectedFiles) }}/></label><small className="form-help">{photos.length} de 3 fotos selecionadas. As imagens serão convertidas para WebP, redimensionadas para até 1600 px e limitadas a 1 MB cada.</small><div className="selected-location">{selected ? 'Ponto marcado: ' + selected.lat.toFixed(5) + ', ' + selected.lng.toFixed(5) : 'Nenhum ponto marcado. Feche o formulário e escolha a localização no mapa.'}</div><button className="primary submit" type="submit">Enviar para aprovação</button></form></div>}
+      {showForm && <div className="modal-backdrop" onClick={() => setShowForm(false)}><form className="modal" onSubmit={submitPlant} onClick={e => e.stopPropagation()}><button type="button" className="close" onClick={() => setShowForm(false)}>×</button><span className="eyebrow">NOVO REGISTRO</span><h2>Cadastrar uma planta</h2><p className="form-help">Preencha os dados e toque no mapa para marcar o local. O cadastro ficará pendente até a revisão.</p><label>Nome popular<input required value={form.name} onChange={e => setForm({...form, name:e.target.value})} placeholder="Ex.: Alecrim"/></label><label>Nome científico (opcional)<input value={form.scientific_name} onChange={e => setForm({...form, scientific_name:e.target.value})} placeholder="Ex.: Salvia rosmarinus"/></label><label>Categoria<select value={form.category} onChange={e => setForm({...form, category:e.target.value})}><option value="arvore">Árvore</option><option value="erva">Erva</option><option value="flor">Flor</option><option value="frutifera">Frutífera</option><option value="arbusto">Arbusto</option><option value="outra">Outra</option></select></label><label>Descrição<textarea value={form.description} onChange={e => setForm({...form, description:e.target.value})} placeholder="Conte como identificar a planta..."/></label><label>Tipo de local<select value={form.location_type} onChange={e => setForm({...form, location_type:e.target.value})}><option value="publico">Local público</option><option value="particular">Propriedade particular (com autorização)</option><option value="aproximado">Localização aproximada</option><option value="preservacao">Área de preservação</option></select></label><label className="file-label"><Camera size={17}/> Fotos (opcional, até 3)<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e => { const selectedFiles = Array.from(e.target.files || []); if (selectedFiles.length > 3) { setNotice("Escolha no máximo 3 fotos."); e.target.value = ""; setPhotos([]); return } setPhotos(selectedFiles) }}/></label><small className="form-help">{photos.length} de 3 fotos selecionadas. As imagens serão convertidas para WebP, redimensionadas para até 1600 px e limitadas a 1 MB cada.</small><div className="address-editor">
+            <div className="address-editor-heading"><strong>Endereço aproximado</strong><button type="button" className="address-lookup-button" onClick={lookupSelectedAddress} disabled={!selected || addressLookupLoading}>{addressLookupLoading ? 'Buscando…' : 'Buscar endereço pelo mapa'}</button></div>
+            <p className="form-help">A sugestão não inclui número do imóvel. Confira e edite antes de enviar; você também pode preencher manualmente.</p>
+            <label>Rua ou via<input value={form.street} onChange={e => setForm({...form, street:e.target.value})} placeholder="Nome da rua, avenida ou estrada"/></label>
+            <label>Bairro ou região<input value={form.neighborhood} onChange={e => setForm({...form, neighborhood:e.target.value})} placeholder="Bairro, distrito ou região"/></label>
+            <div className="address-city-grid"><label>Cidade<input value={form.city} onChange={e => setForm({...form, city:e.target.value})} placeholder="Cidade"/></label><label>Estado<input value={form.state} onChange={e => setForm({...form, state:e.target.value})} placeholder="Estado"/></label></div>
+            <small className="address-attribution">Sugestão de endereço: OpenStreetMap contributors.</small>
+          </div>
+          <div className="selected-location">{selected ? 'Pino exato no mapa: ' + selected.lat.toFixed(5) + ', ' + selected.lng.toFixed(5) : 'Nenhum ponto marcado. Feche o formulário e escolha a localização no mapa.'}</div><button className="primary submit" type="submit">Enviar para aprovação</button></form></div>}
     </div>
   )
 }
