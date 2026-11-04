@@ -255,3 +255,13 @@
 .collaborator-edit .collaborator-cancel{color:#667366}
 .collaborator-edit button:disabled{opacity:.6;cursor:wait}
 @media(max-width:700px){.collaborator-row{align-items:flex-start;flex-wrap:wrap}.collaborator-edit{width:100%;justify-content:flex-start}.collaborator-edit select{flex:1;max-width:none!important}}
+
+/* Consulta paginada de colaboradores */
+.collaborator-filters{display:grid;grid-template-columns:minmax(180px,1.5fr) minmax(130px,1fr) minmax(160px,1fr) auto;gap:8px;margin:16px 0 8px}
+.collaborator-filters input,.collaborator-filters select{min-width:0;width:100%;padding:10px 12px;border:1px solid #dce4d9;border-radius:9px;background:#fff;color:#435747;font:500 12px 'DM Sans'}
+.collaborator-search-button,.collaborator-pagination button{padding:10px 14px;border:1px solid #dce4d9;border-radius:9px;background:#28523b;color:#fff;font:600 12px 'DM Sans';cursor:pointer}
+.collaborator-search-button:disabled,.collaborator-pagination button:disabled{opacity:.45;cursor:default}
+.collaborator-page-note{margin:0 0 8px;color:#7b897e;font-size:11px}
+.collaborator-pagination{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:14px;color:#667366;font-size:12px}
+.collaborator-pagination button{background:#fff;color:#315b3c}
+@media(max-width:700px){.collaborator-filters{grid-template-columns:1fr 1fr}.collaborator-filters input{grid-column:1/-1}.collaborator-search-button{grid-column:1/-1}.collaborator-pagination{justify-content:space-between}}
