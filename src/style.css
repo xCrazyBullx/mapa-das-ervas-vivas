@@ -59,3 +59,25 @@
   .account-actions{flex:0 0 auto;width:auto;margin-left:auto}
   .account-actions button{flex:0 0 auto}
 }
+
+.admin-panel{background:#fff;border:1px solid #e3e9df;border-radius:18px;padding:24px;margin:0 0 24px;box-shadow:0 12px 40px #233d2d0a}
+.admin-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.admin-heading h2{font:500 28px 'Playfair Display',serif;color:#2c4534;margin:7px 0}
+.admin-heading p{font-size:13px;color:#718071;margin:0}
+.admin-count{margin:20px 0 12px;padding:11px 13px;background:#f2f5ef;border-radius:8px;color:#435747;font-size:13px;font-weight:600}
+.admin-empty{padding:22px 8px;text-align:center;color:#788478;font-size:13px}
+.pending-card{border:1px solid #e3e9df;border-radius:12px;padding:17px;margin-top:12px;display:grid;gap:12px}
+.pending-title{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.pending-title h3{margin:0 0 4px;color:#2c4534;font:600 18px 'Playfair Display',serif}
+.pending-title span,.pending-card>p{font-size:12px;color:#718071;margin:0}
+.pending-status{background:#fff4df;color:#805b1f;padding:5px 9px;border-radius:99px;font-size:10px!important;font-weight:700;white-space:nowrap}
+.pending-card a{font-size:12px;color:#28523b;font-weight:600}
+.pending-coordinates{display:flex;align-items:center;gap:6px}
+.pending-card label{display:grid;gap:6px;font-size:12px;font-weight:600;color:#435747}
+.pending-card textarea{width:100%;min-height:68px;border:1px solid #dce4d9;border-radius:8px;padding:10px;font:13px 'DM Sans';resize:vertical}
+.moderation-actions{display:flex;gap:9px}
+.moderation-actions button{flex:1;border:0;border-radius:8px;padding:11px;font:600 12px 'DM Sans';cursor:pointer}
+.approve-button{background:#28523b;color:white}
+.reject-button{background:#f8eeee;color:#9a3838}
+.moderation-actions button:disabled{opacity:.6;cursor:wait}
+@media(max-width:700px){.admin-panel{padding:16px}.admin-heading{align-items:flex-start}.admin-heading h2{font-size:24px}.pending-card{padding:13px}.moderation-actions{flex-direction:column}.moderation-nav{font-size:11px!important}}
