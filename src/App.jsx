@@ -39,6 +39,9 @@ export default function App() {
   const [auditNames, setAuditNames] = useState({})
   const [recentAudit, setRecentAudit] = useState([])
   const [collaborators, setCollaborators] = useState([])
+  const [reports, setReports] = useState([])
+  const [reportNotes, setReportNotes] = useState({})
+  const [reviewingReportId, setReviewingReportId] = useState(null)
   const [mapHealth, setMapHealth] = useState({ invalid: 0, oldPending: 0, possibleDuplicates: 0 })
   const [healthIssues, setHealthIssues] = useState([])
   const [auditFilter, setAuditFilter] = useState('all')
@@ -121,6 +124,20 @@ export default function App() {
   async function loadPendingPlants() {
     if (!user || !['admin', 'moderator'].includes(userRole)) return
     setAdminLoading(true)
+    const { data: reportRows, error: reportError } = await supabase.from('plant_reports').select('*').order('created_at', { ascending: false }).limit(100)
+    if (reportError) setNotice('Não foi possível carregar as denúncias: ' + reportError.message)
+    else {
+      const rows = reportRows ?? []
+      const plantIds = [...new Set(rows.map(report => report.plant_id))]
+      const reporterIds = [...new Set(rows.map(report => report.reporter_id))]
+      const [{ data: reportPlants }, { data: reportProfiles }] = await Promise.all([
+        plantIds.length ? supabase.from('plants').select('id,common_name').in('id', plantIds) : Promise.resolve({ data: [] }),
+        reporterIds.length ? supabase.from('profiles').select('id,display_name').in('id', reporterIds) : Promise.resolve({ data: [] })
+      ])
+      const names = Object.fromEntries((reportPlants ?? []).map(plant => [plant.id, plant.common_name]))
+      const people = Object.fromEntries((reportProfiles ?? []).map(profile => [profile.id, profile.display_name || 'Colaborador']))
+      setReports(rows.map(report => ({ ...report, plantName: names[report.plant_id] || 'Planta removida', reporterName: people[report.reporter_id] || 'Colaborador' })))
+    }
     const { data: latestLogs } = await supabase.from('plant_audit_log').select('*').order('created_at', { ascending: false }).limit(40)
     const historyRows = latestLogs ?? []
     const historyPlantIds = [...new Set(historyRows.map(log => log.plant_id))]
@@ -191,6 +208,16 @@ export default function App() {
     setAdminLoading(false)
   }
 
+  async function reviewReport(report, status) {
+    const note = (reportNotes[report.id] || '').trim()
+    setReviewingReportId(report.id)
+    const reviewedAt = new Date().toISOString()
+    const { error } = await supabase.from('plant_reports').update({ status, reviewed_by: user.id, reviewed_at: reviewedAt, resolution_note: note || null, updated_at: reviewedAt }).eq('id', report.id)
+    setReviewingReportId(null)
+    if (error) { setNotice('Não foi possível atualizar a denúncia: ' + error.message); return }
+    setReports(items => items.map(item => item.id === report.id ? { ...item, status, reviewed_by: user.id, reviewed_at: reviewedAt, resolution_note: note || null } : item))
+    setNotice(status === 'resolved' ? 'Denúncia marcada como resolvida.' : 'Denúncia arquivada.')
+  }
   async function changeCollaboratorRole(person, role) {
     if (userRole !== 'admin' || person.id === user.id) return
     const { error } = await supabase.from('profiles').update({ role }).eq('id', person.id)
@@ -366,7 +393,18 @@ export default function App() {
 
         {showAdmin && ['admin', 'moderator'].includes(userRole) && <section className="admin-panel">
           <div className="admin-heading"><div><span className="eyebrow">ÁREA RESTRITA</span><h2>Painel de moderação</h2><p>Revise os registros enviados pela comunidade antes de publicá-los.</p></div><button className="ghost" onClick={loadPendingPlants} disabled={adminLoading}>Atualizar fila</button></div>
-          {userRole === 'admin' && <><section className="admin-subsection"><h3>Colaboradores</h3><p>Gerencie os níveis de acesso. Seu próprio papel de administrador fica protegido.</p>{collaborators.length === 0 ? <p className="admin-empty">Nenhum perfil encontrado.</p> : collaborators.map(person => <div className="collaborator-row" key={person.id}><div><strong>{person.display_name || 'Colaborador'}</strong><small>{person.id === user.id ? 'Sua conta' : 'Conta cadastrada'}</small></div><select aria-label={'Papel de ' + (person.display_name || 'colaborador')} value={person.role} disabled={person.id === user.id} onChange={e => changeCollaboratorRole(person, e.target.value)}><option value="contributor">Colaborador</option><option value="moderator">Moderador</option><option value="admin">Administrador</option></select></div>)}</section>
+          {userRole === 'admin' && <><section className="admin-subsection report-moderation">
+<div className="report-heading"><div><h3>Denúncias da comunidade</h3><p>Área restrita a administradores e moderadores.</p></div><span className="report-pending-count">{reports.filter(report => report.status === "pending").length} pendentes</span></div>
+{reports.length === 0 ? <p className="admin-empty">Nenhuma denúncia registrada.</p> : reports.map(report => <article className={"report-card report-" + report.status} key={report.id}>
+<div className="report-card-top"><strong>{report.target_type === "plant" ? "Denúncia de planta" : report.target_type === "review" ? "Denúncia de avaliação" : "Denúncia de comentário"}</strong><span className={"report-status " + report.status}>{report.status === "pending" ? "Pendente" : report.status === "resolved" ? "Resolvida" : "Arquivada"}</span></div>
+<p className="report-target"><b>{report.plantName}</b> · {report.reason}</p>
+{report.details && <p className="report-details">{report.details}</p>}
+<div className="report-meta">Enviada por {report.reporterName} · {new Date(report.created_at).toLocaleString("pt-BR")}</div>
+{report.resolution_note && <p className="report-resolution">Decisão: {report.resolution_note}</p>}
+{report.status === "pending" && <><label className="report-note-label">Nota interna (opcional)<textarea value={reportNotes[report.id] || ""} onChange={e => setReportNotes(notes => ({ ...notes, [report.id]: e.target.value }))} placeholder="Registre o motivo da decisão..."/></label><div className="report-actions"><button type="button" className="approve-button" disabled={reviewingReportId === report.id} onClick={() => reviewReport(report, "resolved")}>Resolver denúncia</button><button type="button" className="reject-button" disabled={reviewingReportId === report.id} onClick={() => reviewReport(report, "dismissed")}>Arquivar</button></div></>}
+</article>)}
+</section>
+<section className="admin-subsection"><h3>Colaboradores</h3><p>Gerencie os níveis de acesso. Seu próprio papel de administrador fica protegido.</p>{collaborators.length === 0 ? <p className="admin-empty">Nenhum perfil encontrado.</p> : collaborators.map(person => <div className="collaborator-row" key={person.id}><div><strong>{person.display_name || 'Colaborador'}</strong><small>{person.id === user.id ? 'Sua conta' : 'Conta cadastrada'}</small></div><select aria-label={'Papel de ' + (person.display_name || 'colaborador')} value={person.role} disabled={person.id === user.id} onChange={e => changeCollaboratorRole(person, e.target.value)}><option value="contributor">Colaborador</option><option value="moderator">Moderador</option><option value="admin">Administrador</option></select></div>)}</section>
           <section className="admin-subsection"><h3>Saúde do mapa</h3><div className="health-grid"><div><strong>{mapHealth.invalid}</strong><span>Coordenadas ausentes ou inválidas</span></div><div><strong>{mapHealth.possibleDuplicates}</strong><span>Possíveis duplicidades</span></div><div><strong>{mapHealth.oldPending}</strong><span>Pendentes há mais de 30 dias</span></div></div><p className="health-note">As duplicidades são sugestões automáticas por nome e proximidade; confira antes de alterar qualquer registro.</p>{healthIssues.length > 0 && <div className="health-issues"><strong>Ocorrências para revisar</strong>{healthIssues.slice(0, 30).map(issue => <div className="health-issue" key={issue.id}><div><b>{issue.plant.common_name || 'Planta sem nome'}</b><span>{issue.message}{issue.other ? ' · semelhante a ' + issue.other.common_name : ''}</span></div>{issue.plant.latitude != null && issue.plant.longitude != null && Math.abs(Number(issue.plant.latitude)) <= 90 && Math.abs(Number(issue.plant.longitude)) <= 180 && <a href={'https://www.google.com/maps?q=' + issue.plant.latitude + ',' + issue.plant.longitude} target="_blank" rel="noreferrer">Ver ponto</a>}</div>)}</div>}</section></>}
           <section className="admin-subsection"><h3>Histórico recente</h3><div className="audit-filters"><input value={auditSearch} onChange={e => setAuditSearch(e.target.value)} placeholder="Buscar planta, colaborador ou observação"/><select value={auditFilter} onChange={e => setAuditFilter(e.target.value)}><option value="all">Todas as ações</option><option value="created">Cadastros</option><option value="updated">Atualizações</option></select></div>{filteredAudit.length === 0 ? <p className="admin-empty">Nenhuma movimentação corresponde ao filtro.</p> : filteredAudit.map(log => <div className="recent-audit-row" key={log.id}><div><strong>{log.plantName}</strong><span>{log.action === 'created' ? 'Cadastro enviado' : log.action === 'updated' ? 'Registro atualizado' : log.action} · {log.actorName}</span>{log.new_data?.moderation_note && <small>Observação: {log.new_data.moderation_note}</small>}<details className="audit-detail"><summary>Ver alterações</summary><pre>{JSON.stringify({ antes: log.old_data, depois: log.new_data }, null, 2)}</pre></details></div><time>{new Date(log.created_at).toLocaleString('pt-BR')}</time></div>)}</section>
           <div className="admin-count">{pendingPlants.length} publicação(ões) aguardando análise</div>
