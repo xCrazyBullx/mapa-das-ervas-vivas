@@ -110,3 +110,18 @@
 .plant-history>div strong{font-size:11px}
 .plant-history small{font-size:10px;color:#829082}
 .plant-history p{margin:0;font-size:11px;color:#718071}
+
+.admin-subsection{margin:18px 0;padding:16px;border:1px solid #e3e9df;border-radius:12px;background:#fbfcfa}
+.admin-subsection h3{margin:0 0 5px;color:#2c4534;font:600 18px 'Playfair Display',serif}
+.admin-subsection>p{margin:0 0 12px;color:#788478;font-size:11px;line-height:1.5}
+.collaborator-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #edf0eb}
+.collaborator-row>div{display:grid;gap:3px;min-width:0}
+.collaborator-row strong{font-size:12px;color:#435747;overflow-wrap:anywhere}
+.collaborator-row small{font-size:10px;color:#899489}
+.collaborator-row select{max-width:150px;border:1px solid #dce4d9;border-radius:7px;padding:7px;background:white;color:#435747;font:11px 'DM Sans'}
+.health-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.health-grid>div{display:grid;gap:5px;padding:12px;background:white;border:1px solid #e8ede6;border-radius:9px}
+.health-grid strong{font-size:22px;color:#315b3c}
+.health-grid span{font-size:10px;line-height:1.4;color:#718071}
+.health-note{margin-top:10px!important}
+@media(max-width:700px){.admin-subsection{padding:12px}.health-grid{grid-template-columns:1fr}.collaborator-row{align-items:flex-start}.collaborator-row select{max-width:130px}}
