@@ -479,6 +479,7 @@ export default function App() {
       position => {
         const point = { lat: position.coords.latitude, lng: position.coords.longitude }
         setSelected(point)
+        setForm(current => ({ ...current, street: '', neighborhood: '', city: '', state: '' }))
         setLocating(false)
         setLocationGate(false)
         setSelectingLocation(false)
@@ -739,7 +740,7 @@ export default function App() {
             <MapContainer center={visitorLocation ? [visitorLocation.lat, visitorLocation.lng] : [-23.3103, -51.1628]} zoom={visitorLocation ? 14 : 12} scrollWheelZoom={true} className="map">
               <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
               <SelectLocation onSelect={handleMapSelection}/><MapBoundsTracker onBoundsChange={handleMapBoundsChange}/><RecenterMap position={selected || visitorLocation}/>
-              {visiblePlants.map(p => <Marker key={p.id} position={[p.latitude, p.longitude]} icon={createPlantMarkerIcon(p.category)}><Popup><strong>{p.common_name}</strong>{(p.address || p.city) && <p className="plant-popup-address">{[p.address, p.city, p.state].filter(Boolean).join(' · ')}</p>}<p>{p.description || 'Sem descrição.'}</p><small>{p.scientific_name || ''}</small><p><button className="popup-action" onClick={() => confirmPlant(p)}>Confirmar presença</button> <button className="popup-report-action" onClick={() => { if (!user) { setAuthMode('signin'); setNotice('Entre na sua conta para denunciar uma publicação.') } else { setReportTarget(p); setReportDetails('') } }}>Denunciar</button></p><a target="_blank" rel="noreferrer" href={'https://www.google.com/maps?q=' + p.latitude + ',' + p.longitude}>Abrir no Google Maps</a></Popup></Marker>)}
+              {visiblePlants.map(p => <Marker key={p.id} position={[p.latitude, p.longitude]} icon={createPlantMarkerIcon(p.category)}><Popup><strong>{p.common_name}</strong>{(p.address || p.city) && <p className="plant-popup-address">{[p.address, p.city, p.state].filter(Boolean).join(' · ')}</p>}<p>{p.description || 'Sem descrição.'}</p><small>{p.scientific_name || ''}</small><p><button className="popup-action" onClick={() => confirmPlant(p)}>Confirmar presença</button> <button className="popup-report-action" onClick={() => { if (!user) { setAuthMode('signin'); setNotice('Entre na sua conta para denunciar uma publicação.') } else { setReportTarget(p); setReportDetails('') } }}>Denunciar</button></p><a className="maps-link-button" target="_blank" rel="noreferrer" href={'https://www.google.com/maps?q=' + p.latitude + ',' + p.longitude}>Abrir no Google Maps</a></Popup></Marker>)}
               {visitorLocation && <Marker position={[visitorLocation.lat, visitorLocation.lng]} icon={visitorIcon}><Popup>Você está aqui (localização visível apenas neste navegador)</Popup></Marker>}
               {selected && <Marker position={[selected.lat, selected.lng]} icon={markerIcon}><Popup>Local escolhido para novo cadastro</Popup></Marker>}
             </MapContainer>
