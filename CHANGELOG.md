@@ -26,7 +26,7 @@ Enquanto o projeto estiver antes da versão 1.0.0, a API e as funcionalidades ai
 - Testes reais de navegação, paginação, moderação e fotos: pendentes.
 
 ### Commit relacionado
-- A ser preenchido após o commit desta versão.
+- `39b2db3` — otimização principal do carregamento do mapa e das consultas de moderação.
 
 ---
 
