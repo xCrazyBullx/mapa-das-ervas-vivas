@@ -22,3 +22,13 @@
   .account-actions button{flex:1 1 0;min-width:0;justify-content:center;white-space:nowrap;padding:10px 7px;font-size:11px}
   .account-actions button svg{width:15px;height:15px;flex:0 0 auto}
 }
+
+.auth-modal{gap:14px}
+.google-auth-button{width:100%;min-height:48px;border:1px solid #dce4d9;border-radius:9px;background:#fff;color:#2d4032;font:600 14px 'DM Sans';display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer}
+.google-auth-button:hover{background:#f6f8f3;border-color:#bdcdb9}
+.google-auth-button:disabled,.auth-modal button:disabled{opacity:.65;cursor:wait}
+.auth-divider{display:flex;align-items:center;gap:12px;color:#879287;font-size:11px;margin:2px 0}
+.auth-divider:before,.auth-divider:after{content:'';height:1px;background:#e6ebe3;flex:1}
+.auth-modal form{display:grid;gap:13px}
+.auth-switch{text-align:center;font-size:12px;color:#718071;margin:2px 0 0}
+.auth-switch button{border:0;background:none;color:#28523b;font:700 12px 'DM Sans';cursor:pointer;text-decoration:underline}
