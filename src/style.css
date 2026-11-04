@@ -48,3 +48,14 @@
 .manual-location-button:hover{background:#f5f8f2;border-color:#bdcdb9}
 .manual-location-button:disabled{opacity:.65;cursor:wait}
 .location-privacy{font-size:11px;line-height:1.5;color:#829083;margin:0}
+
+
+/* Mobile header: brand and sign-out stay on the same row */
+@media(max-width:700px){
+  .topbar{flex-wrap:nowrap;align-items:center;justify-content:space-between;gap:8px;padding:10px 16px;min-height:66px}
+  .brand{flex:1 1 auto;width:auto;min-width:0}
+  .brand-mark{flex:0 0 42px}
+  .brand strong{white-space:nowrap}
+  .account-actions{flex:0 0 auto;width:auto;margin-left:auto}
+  .account-actions button{flex:0 0 auto}
+}
