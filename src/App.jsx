@@ -28,6 +28,12 @@ export default function App() {
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('todas')
   const [user, setUser] = useState(null)
+  const [userRole, setUserRole] = useState(null)
+  const [showAdmin, setShowAdmin] = useState(false)
+  const [pendingPlants, setPendingPlants] = useState([])
+  const [adminLoading, setAdminLoading] = useState(false)
+  const [moderationNotes, setModerationNotes] = useState({})
+  const [moderatingId, setModeratingId] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [locationGate, setLocationGate] = useState(false)
   const [locating, setLocating] = useState(false)
@@ -49,6 +55,38 @@ export default function App() {
     return () => listener.subscription.unsubscribe()
   }, [])
 
+  useEffect(() => {
+    let active = true
+    async function loadRole() {
+      if (!user || !supabaseReady) { setUserRole(null); setShowAdmin(false); return }
+      const { data, error } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      if (active) setUserRole(error ? null : data?.role ?? null)
+    }
+    loadRole()
+    return () => { active = false }
+  }, [user])
+
+  async function loadPendingPlants() {
+    if (!user || !['admin', 'moderator'].includes(userRole)) return
+    setAdminLoading(true)
+    const { data, error } = await supabase.from('plants').select('*').eq('status', 'pending').order('created_at', { ascending: true })
+    if (error) setNotice('Não foi possível carregar a fila de moderação: ' + error.message)
+    else setPendingPlants(data ?? [])
+    setAdminLoading(false)
+  }
+
+  async function moderatePlant(plant, status) {
+    const note = (moderationNotes[plant.id] || '').trim()
+    if (status === 'rejected' && !note) { setNotice('Escreva uma observação explicando o motivo da rejeição.'); return }
+    setModeratingId(plant.id)
+    const payload = { status, moderation_note: note || null, updated_by: user.id, approved_by: status === 'approved' ? user.id : null, approved_at: status === 'approved' ? new Date().toISOString() : null, updated_at: new Date().toISOString() }
+    const { error } = await supabase.from('plants').update(payload).eq('id', plant.id)
+    setModeratingId(null)
+    if (error) { setNotice('Não foi possível atualizar a publicação: ' + error.message); return }
+    setNotice(status === 'approved' ? 'Planta aprovada e publicada no mapa.' : 'Publicação rejeitada. A observação foi registrada.')
+    setPendingPlants(items => items.filter(item => item.id !== plant.id))
+    if (status === 'approved') loadPlants()
+  }
   async function loadPlants() {
     if (!supabaseReady) return
     setLoading(true)
@@ -171,7 +209,7 @@ export default function App() {
       <header className="topbar">
         <a className="brand" href="#"><span className="brand-mark"><Leaf size={22}/></span><span><strong>Ervas Vivas</strong><small>MAPA COLABORATIVO</small></span></a>
         <div className="account-actions">
-          {user ? <button className="ghost" onClick={() => supabase.auth.signOut()}><LogOut size={17}/> Sair</button> : <><button className="ghost" onClick={() => setAuthMode('signup')}>Criar conta</button><button className="login" onClick={() => setAuthMode('signin')}><LogIn size={16}/> Entrar</button></>}
+          {user ? <>{['admin', 'moderator'].includes(userRole) && <button className="ghost moderation-nav" onClick={() => { setShowAdmin(v => !v); if (!showAdmin) loadPendingPlants() }}><ShieldCheck size={17}/> {showAdmin ? 'Voltar ao mapa' : 'Moderação'}</button>}<button className="ghost" onClick={() => supabase.auth.signOut()}><LogOut size={17}/> Sair</button></> : <><button className="ghost" onClick={() => setAuthMode('signup')}>Criar conta</button><button className="login" onClick={() => setAuthMode('signin')}><LogIn size={16}/> Entrar</button></>}
         </div>
       </header>
 
@@ -183,6 +221,19 @@ export default function App() {
 
         {!supabaseReady && <div className="notice warning"><AlertCircle size={18}/> O aplicativo está no ar em modo de configuração. Falta inserir as variáveis públicas do Supabase para carregar os dados.</div>}
         {notice && <div className="notice"><span>{notice}</span><button onClick={() => setNotice('')}>×</button></div>}
+
+        {showAdmin && ['admin', 'moderator'].includes(userRole) && <section className="admin-panel">
+          <div className="admin-heading"><div><span className="eyebrow">ÁREA RESTRITA</span><h2>Painel de moderação</h2><p>Revise os registros enviados pela comunidade antes de publicá-los.</p></div><button className="ghost" onClick={loadPendingPlants} disabled={adminLoading}>Atualizar fila</button></div>
+          <div className="admin-count">{pendingPlants.length} publicação(ões) aguardando análise</div>
+          {adminLoading ? <p className="admin-empty">Carregando publicações...</p> : pendingPlants.length === 0 ? <p className="admin-empty">Nenhuma publicação pendente no momento.</p> : pendingPlants.map(plant => <article className="pending-card" key={plant.id}>
+            <div className="pending-title"><div><h3>{plant.common_name}</h3><span>{plant.scientific_name || 'Nome científico não informado'} · {plant.category}</span></div><span className="pending-status">Pendente</span></div>
+            {plant.description && <p>{plant.description}</p>}
+            <p className="pending-coordinates"><MapPin size={14}/> {Number(plant.latitude).toFixed(5)}, {Number(plant.longitude).toFixed(5)} · {plant.location_type}</p>
+            <a href={'https://www.google.com/maps?q=' + plant.latitude + ',' + plant.longitude} target="_blank" rel="noreferrer">Ver localização no mapa</a>
+            <label>Observação da moderação<textarea value={moderationNotes[plant.id] || ''} onChange={e => setModerationNotes(notes => ({...notes, [plant.id]: e.target.value}))} placeholder="Explique o motivo caso precise rejeitar ou deixe uma orientação..."/></label>
+            <div className="moderation-actions"><button className="approve-button" disabled={moderatingId === plant.id} onClick={() => moderatePlant(plant, 'approved')}>Aprovar publicação</button><button className="reject-button" disabled={moderatingId === plant.id} onClick={() => moderatePlant(plant, 'rejected')}>Rejeitar</button></div>
+          </article>)}
+        </section>}
 
         <section className="map-section">
           <div className="map-heading"><div><span className="eyebrow">EXPLORAR</span><h2>Explore a natureza ao seu redor</h2></div><label className="search"><Search size={17}/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Busque por nome, espécie, erva, flor ou árvore..."/></label></div>
