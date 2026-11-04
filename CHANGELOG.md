@@ -1,5 +1,23 @@
 # Histórico de versões — Mapa das Ervas Vivas
 
+## [0.3.6] — 2026-11-04
+
+**Resumo:** adiciona endereço aproximado editável ao cadastro, mantendo as coordenadas exatas para navegação.
+
+### Alterado
+- Consulta de endereço reversa sob ação do colaborador, com sugestão de rua, bairro, cidade e estado.
+- Número do imóvel não é solicitado nem salvo; campos permanecem editáveis e podem ser preenchidos manualmente.
+- Endereço sem número aparece na ficha pública e na fila de moderação.
+- Botão de abertura no Google Maps continua usando latitude e longitude exatas.
+- Resultado da consulta é armazenado em cache por sessão; consulta manual com intervalo mínimo local e atribuição ao OpenStreetMap.
+- Nenhuma nova coluna foi criada: foram utilizados os campos `address`, `city` e `state` já existentes.
+
+### Validação
+- Alterações registradas na branch main.
+- Build, deploy e testes reais: pendentes.
+
+---
+
 ## [0.3.5] — 2026-11-04
 
 **Resumo:** adiciona encerramento automático de sessões após períodos de inatividade, com aviso prévio.
