@@ -27,6 +27,14 @@ function SelectLocation({ onSelect }) {
   return null
 }
 
+function MapBoundsTracker({ onBoundsChange }) {
+  useMapEvents({ moveend(event) {
+    const bounds = event.target.getBounds()
+    onBoundsChange({ south: bounds.getSouth(), north: bounds.getNorth(), west: bounds.getWest(), east: bounds.getEast() })
+  } })
+  return null
+}
+
 function RecenterMap({ position }) {
   const map = useMapEvents({})
   useEffect(() => { if (position) map.setView([position.lat, position.lng], 16) }, [position, map])
@@ -38,6 +46,9 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [loadingMorePlants, setLoadingMorePlants] = useState(false)
   const [hasMorePlants, setHasMorePlants] = useState(false)
+  const [searchedBounds, setSearchedBounds] = useState(null)
+  const [pendingBounds, setPendingBounds] = useState(null)
+  const [searchingArea, setSearchingArea] = useState(false)
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('todas')
   const [user, setUser] = useState(null)
@@ -319,17 +330,23 @@ export default function App() {
     setPendingPlants(items => items.filter(item => item.id !== plant.id))
     if (status === 'approved') loadPlants()
   }
-  async function loadPlants(append = false) {
+  async function loadPlants(append = false, bounds = searchedBounds) {
     if (!supabaseReady || (append && (!hasMorePlants || loadingMorePlants))) return
     const pageSize = 200
     const offset = append ? plants.length : 0
     if (append) setLoadingMorePlants(true)
     else setLoading(true)
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('plants')
       .select('id,common_name,scientific_name,description,category,latitude,longitude,created_at')
       .eq('status', 'approved')
+    if (bounds) query = query
+      .gte('latitude', bounds.south)
+      .lte('latitude', bounds.north)
+      .gte('longitude', bounds.west)
+      .lte('longitude', bounds.east)
+    const { data, error } = await query
       .order('created_at', { ascending: false })
       .range(offset, offset + pageSize - 1)
 
@@ -501,6 +518,20 @@ export default function App() {
     const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
     return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
   }
+  function handleMapBoundsChange(bounds) {
+    const key = value => value ? [value.south, value.north, value.west, value.east].map(n => Number(n).toFixed(4)).join(':') : ''
+    setPendingBounds(key(bounds) === key(searchedBounds) ? null : bounds)
+  }
+
+  async function searchCurrentArea() {
+    if (!pendingBounds || searchingArea) return
+    setSearchingArea(true)
+    setSearchedBounds(pendingBounds)
+    setPendingBounds(null)
+    await loadPlants(false, pendingBounds)
+    setSearchingArea(false)
+  }
+
   const visiblePlants = plants.filter(p => [p.common_name, p.scientific_name, p.description].filter(Boolean).join(' ').toLowerCase().includes(search.toLowerCase()) && (selectedCategory === 'todas' || p.category === selectedCategory))
     .map(p => ({ ...p, distance: visitorLocation ? distanceKm(visitorLocation, { lat: Number(p.latitude), lng: Number(p.longitude) }) : null }))
     .sort((a, b) => visitorLocation ? a.distance - b.distance : 0)
@@ -572,20 +603,21 @@ export default function App() {
           <div className="map-wrap">
             <MapContainer center={visitorLocation ? [visitorLocation.lat, visitorLocation.lng] : [-23.3103, -51.1628]} zoom={visitorLocation ? 14 : 12} scrollWheelZoom={true} className="map">
               <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
-              <SelectLocation onSelect={handleMapSelection}/><RecenterMap position={selected || visitorLocation}/>
+              <SelectLocation onSelect={handleMapSelection}/><MapBoundsTracker onBoundsChange={handleMapBoundsChange}/><RecenterMap position={selected || visitorLocation}/>
               {visiblePlants.map(p => <Marker key={p.id} position={[p.latitude, p.longitude]} icon={createPlantMarkerIcon(p.category)}><Popup><strong>{p.common_name}</strong><p>{p.description || 'Sem descrição.'}</p><small>{p.scientific_name || ''}</small><p><button className="popup-action" onClick={() => confirmPlant(p)}>Confirmar presença</button> <button className="popup-report-action" onClick={() => { if (!user) { setAuthMode('signin'); setNotice('Entre na sua conta para denunciar uma publicação.') } else { setReportTarget(p); setReportDetails('') } }}>Denunciar</button></p><a target="_blank" rel="noreferrer" href={'https://www.google.com/maps?q=' + p.latitude + ',' + p.longitude}>Abrir no Google Maps</a></Popup></Marker>)}
               {visitorLocation && <Marker position={[visitorLocation.lat, visitorLocation.lng]} icon={visitorIcon}><Popup>Você está aqui (localização visível apenas neste navegador)</Popup></Marker>}
               {selected && <Marker position={[selected.lat, selected.lng]} icon={markerIcon}><Popup>Local escolhido para novo cadastro</Popup></Marker>}
             </MapContainer>
-            <div className="map-hint"><MapPin size={15}/> {selectingLocation ? 'Toque no ponto exato da planta para continuar' : 'Use o mapa para explorar e localizar plantas'}</div>
+            {pendingBounds && <button className="map-search-area" type="button" onClick={searchCurrentArea} disabled={searchingArea}>{searchingArea ? 'Pesquisando…' : 'Pesquisar nesta área'}</button>}
+            <div className="map-hint"><MapPin size={15}/> {selectingLocation ? 'Toque no ponto exato da planta para continuar' : 'Mova o mapa e pesquise as plantas desta região'}</div>
           </div>
           <div className="map-footer"><span><span className="dot"/> {loading ? 'Carregando...' : plants.length + ' plantas carregadas'}</span><span><ShieldCheck size={15}/> Publicações passam por moderação</span></div>
-          {hasMorePlants && <div className="map-load-more"><button className="primary" type="button" onClick={() => loadPlants(true)} disabled={loadingMorePlants}>{loadingMorePlants ? 'Carregando...' : 'Carregar mais plantas'}</button></div>}
+          {hasMorePlants && <div className="map-load-more"><button className="primary" type="button" onClick={() => loadPlants(true, searchedBounds)} disabled={loadingMorePlants}>{loadingMorePlants ? 'Carregando...' : 'Carregar mais plantas'}</button></div>}
         </section>
 
         <section className="info-strip"><div><LocateFixed/><strong>Localização colaborativa</strong><p>Marque o ponto no mapa ou use sua localização.</p></div><div><Camera/><strong>Fotos e registros</strong><p>Ajude a comunidade a reconhecer cada espécie.</p></div><div><ShieldCheck/><strong>Conteúdo revisado</strong><p>Novos cadastros aguardam aprovação.</p></div></section>
       </main>
-      <footer>MAPA DAS ERVAS VIVAS <span>Feito para compartilhar conhecimento e preservar a natureza.</span><small className="app-version">Versão 0.2.1</small></footer>
+      <footer>MAPA DAS ERVAS VIVAS <span>Feito para compartilhar conhecimento e preservar a natureza.</span><small className="app-version">Versão 0.3.0</small></footer>
 
       {reportTarget && <div className="modal-backdrop" onClick={() => { if (!submittingReport) setReportTarget(null) }}><form className="modal" onSubmit={submitPlantReport} onClick={e => e.stopPropagation()}><button type="button" className="close" onClick={() => setReportTarget(null)} disabled={submittingReport}>×</button><span className="eyebrow">CONTRIBUIÇÃO DA COMUNIDADE</span><h2>Denunciar publicação</h2><p className="form-help">Sua denúncia será enviada em privado para a equipe de moderação. Use este recurso para sinalizar problemas reais no registro.</p><strong className="report-form-plant">{reportTarget.common_name}</strong><label>Motivo<select value={reportReason} onChange={e => setReportReason(e.target.value)}><option value="informacao incorreta">Informação incorreta</option><option value="localizacao incorreta">Localização incorreta</option><option value="duplicidade">Publicação duplicada</option><option value="conteudo inadequado">Conteúdo inadequado</option><option value="risco ambiental">Risco ambiental ou acesso indevido</option><option value="outro">Outro motivo</option></select></label><label>Detalhes (opcional)<textarea value={reportDetails} onChange={e => setReportDetails(e.target.value)} maxLength={2000} placeholder="Explique o que precisa ser verificado..."/></label><button className="primary submit" type="submit" disabled={submittingReport}>{submittingReport ? 'Enviando...' : 'Enviar denúncia'}</button></form></div>}
 
