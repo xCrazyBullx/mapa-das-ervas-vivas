@@ -33,6 +33,9 @@ export default function App() {
   const [showNotifications, setShowNotifications] = useState(false)
   const [showAdmin, setShowAdmin] = useState(false)
   const [pendingPlants, setPendingPlants] = useState([])
+  const [pendingPhotos, setPendingPhotos] = useState({})
+  const [auditHistory, setAuditHistory] = useState({})
+  const [auditNames, setAuditNames] = useState({})
   const [adminLoading, setAdminLoading] = useState(false)
   const [moderationNotes, setModerationNotes] = useState({})
   const [moderatingId, setModeratingId] = useState(null)
@@ -97,9 +100,44 @@ export default function App() {
     if (!user || !['admin', 'moderator'].includes(userRole)) return
     setAdminLoading(true)
     const { data, error } = await supabase.from('plants').select('*').eq('status', 'pending').order('created_at', { ascending: true })
-    if (error) setNotice('Não foi possível carregar a fila de moderação: ' + error.message)
-    else setPendingPlants(data ?? [])
+    if (error) {
+      setNotice('Não foi possível carregar a fila de moderação: ' + error.message)
+    } else {
+      const plants = data ?? []
+      setPendingPlants(plants)
+      const ids = plants.map(plant => plant.id)
+      if (ids.length) {
+        const [{ data: photos }, { data: logs }] = await Promise.all([
+          supabase.from('plant_photos').select('*').in('plant_id', ids).order('created_at', { ascending: true }),
+          supabase.from('plant_audit_log').select('*').in('plant_id', ids).order('created_at', { ascending: false })
+        ])
+        const photoGroups = {}
+        ;(photos ?? []).forEach(photo => { (photoGroups[photo.plant_id] ||= []).push(photo) })
+        const logGroups = {}
+        ;(logs ?? []).forEach(log => { (logGroups[log.plant_id] ||= []).push(log) })
+        setPendingPhotos(photoGroups)
+        setAuditHistory(logGroups)
+        const actorIds = [...new Set((logs ?? []).map(log => log.actor_id).filter(Boolean))]
+        if (actorIds.length) {
+          const { data: profiles } = await supabase.from('profiles').select('id,display_name').in('id', actorIds)
+          setAuditNames(Object.fromEntries((profiles ?? []).map(profile => [profile.id, profile.display_name || 'Colaborador'])))
+        }
+      } else {
+        setPendingPhotos({})
+        setAuditHistory({})
+      }
+    }
     setAdminLoading(false)
+  }
+
+  async function removePlantPhoto(photo) {
+    if (!window.confirm('Remover esta foto da publicação?')) return
+    const storage = await supabase.storage.from('plant-photos').remove([photo.storage_path])
+    if (storage.error) { setNotice('Não foi possível remover o arquivo: ' + storage.error.message); return }
+    const { error } = await supabase.from('plant_photos').delete().eq('id', photo.id)
+    if (error) { setNotice('Arquivo removido, mas não foi possível excluir o registro: ' + error.message); return }
+    setPendingPhotos(groups => ({ ...groups, [photo.plant_id]: (groups[photo.plant_id] || []).filter(item => item.id !== photo.id) }))
+    setNotice('Foto removida.')
   }
 
   async function moderatePlant(plant, status) {
@@ -262,9 +300,14 @@ export default function App() {
           {adminLoading ? <p className="admin-empty">Carregando publicações...</p> : pendingPlants.length === 0 ? <p className="admin-empty">Nenhuma publicação pendente no momento.</p> : pendingPlants.map(plant => <article className="pending-card" key={plant.id}>
             <div className="pending-title"><div><h3>{plant.common_name}</h3><span>{plant.scientific_name || 'Nome científico não informado'} · {plant.category}</span></div><span className="pending-status">Pendente</span></div>
             {plant.description && <p>{plant.description}</p>}
+            {(pendingPhotos[plant.id] || []).length > 0 && <div className="moderation-photos"><strong>Fotos enviadas</strong><div className="moderation-photo-grid">{pendingPhotos[plant.id].map(photo => {
+              const imageUrl = supabase.storage.from('plant-photos').getPublicUrl(photo.storage_path).data.publicUrl
+              return <figure key={photo.id}><a href={imageUrl} target="_blank" rel="noreferrer"><img src={imageUrl} alt={photo.caption || 'Foto enviada pelo colaborador'}/></a><figcaption>{photo.caption || 'Sem legenda'}<button type="button" onClick={() => removePlantPhoto(photo)}>Remover foto</button></figcaption></figure>
+            })}</div></div>}
             <p className="pending-coordinates"><MapPin size={14}/> {Number(plant.latitude).toFixed(5)}, {Number(plant.longitude).toFixed(5)} · {plant.location_type}</p>
             <a href={'https://www.google.com/maps?q=' + plant.latitude + ',' + plant.longitude} target="_blank" rel="noreferrer">Ver localização no mapa</a>
             <label>Observação da moderação<textarea value={moderationNotes[plant.id] || ''} onChange={e => setModerationNotes(notes => ({...notes, [plant.id]: e.target.value}))} placeholder="Explique o motivo caso precise rejeitar ou deixe uma orientação..."/></label>
+            {(auditHistory[plant.id] || []).length > 0 && <details className="plant-history"><summary>Histórico ({auditHistory[plant.id].length})</summary>{auditHistory[plant.id].map(log => <div key={log.id}><strong>{log.action === 'created' ? 'Cadastro criado' : log.action === 'updated' ? 'Registro atualizado' : log.action}</strong><small>{auditNames[log.actor_id] || 'Sistema'} · {new Date(log.created_at).toLocaleString('pt-BR')}</small>{log.new_data?.moderation_note && <p>{log.new_data.moderation_note}</p>}</div>)}</details>}
             <div className="moderation-actions"><button className="approve-button" disabled={moderatingId === plant.id} onClick={() => moderatePlant(plant, 'approved')}>Aprovar publicação</button><button className="reject-button" disabled={moderatingId === plant.id} onClick={() => moderatePlant(plant, 'rejected')}>Rejeitar</button></div>
           </article>)}
         </section>}
