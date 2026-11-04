@@ -1,5 +1,23 @@
 # Histórico de versões — Mapa das Ervas Vivas
 
+## [0.3.2] — 2026-11-03
+
+**Resumo:** reduz o volume de dados da gestão de colaboradores e adiciona filtros e paginação.
+
+### Alterado
+- Ao abrir o painel administrativo, a lista inicial consulta somente cinco perfis, com uma sexta linha usada apenas para detectar próxima página.
+- Paginação de cinco contas por vez, sem carregar a lista inteira.
+- Busca por nome aplicada somente ao enviar o formulário.
+- Filtro por nível: administrador, moderador ou colaborador.
+- Ordenação por cadastro mais recente, mais antigo ou nome (A–Z).
+- Exibe a data de cadastro na linha do colaborador.
+
+### Validação
+- Alterações registradas na branch main.
+- Build, deploy e testes com volume real de contas: pendentes.
+
+---
+
 ## [0.3.1] — 2026-11-03
 
 **Resumo:** torna a gestão de papéis dos colaboradores mais clara e segura contra alterações acidentais.
@@ -38,7 +56,7 @@ As versões seguem o padrão SemVer: MAJOR.MINOR.PATCH.
 - **MINOR**: nova funcionalidade ou melhoria relevante, mantendo compatibilidade.
 - **PATCH**: correção de bug, ajuste pequeno ou melhoria interna.
 
-Enquanto o projeto estiver antes da versão 1.0.0, a API e as funcionalidades ainda podem mudar. A versão atual é 0.3.1.
+Enquanto o projeto estiver antes da versão 1.0.0, a API e as funcionalidades ainda podem mudar. A versão atual é 0.3.2.
 
 ## [0.2.1] — 2026-11-03
 
