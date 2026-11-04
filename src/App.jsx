@@ -36,6 +36,8 @@ function RecenterMap({ position }) {
 export default function App() {
   const [plants, setPlants] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadingMorePlants, setLoadingMorePlants] = useState(false)
+  const [hasMorePlants, setHasMorePlants] = useState(false)
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('todas')
   const [user, setUser] = useState(null)
@@ -151,10 +153,13 @@ export default function App() {
   }, [user])
 
   async function createPhotoUrls(photos) {
-    const entries = await Promise.all((photos || []).map(async photo => {
-      const { data, error } = await supabase.storage.from('plant-photos').createSignedUrl(photo.storage_path, 3600)
-      return [photo.id, error ? null : data?.signedUrl || null]
-    }))
+    const pending = (photos || []).filter(photo => !photoUrls[photo.id])
+    if (!pending.length) return
+    const { data, error } = await supabase.storage
+      .from('plant-photos')
+      .createSignedUrls(pending.map(photo => photo.storage_path), 3600)
+    if (error || !data) return
+    const entries = pending.map((photo, index) => [photo.id, data[index]?.signedUrl || null])
     setPhotoUrls(current => ({ ...current, ...Object.fromEntries(entries.filter(([, url]) => url)) }))
   }
 
@@ -168,7 +173,7 @@ export default function App() {
   async function loadPendingPlants() {
     if (!user || !['admin', 'moderator'].includes(userRole)) return
     setAdminLoading(true)
-    const { data: reportRows, error: reportError } = await supabase.from('plant_reports').select('*').order('created_at', { ascending: false }).limit(100)
+    const { data: reportRows, error: reportError } = await supabase.from('plant_reports').select('id,plant_id,reporter_id,reason,details,status,created_at,reviewed_by,reviewed_at,resolution_note,updated_at,target_type,target_id').order('created_at', { ascending: false }).limit(100)
     if (reportError) setNotice('Não foi possível carregar as denúncias: ' + reportError.message)
     else {
       const rows = reportRows ?? []
@@ -182,7 +187,7 @@ export default function App() {
       const people = Object.fromEntries((reportProfiles ?? []).map(profile => [profile.id, profile.display_name || 'Colaborador']))
       setReports(rows.map(report => ({ ...report, plantName: names[report.plant_id] || 'Planta removida', reporterName: people[report.reporter_id] || 'Colaborador' })))
     }
-    const { data: latestLogs } = await supabase.from('plant_audit_log').select('*').order('created_at', { ascending: false }).limit(40)
+    const { data: latestLogs } = await supabase.from('plant_audit_log').select('id,plant_id,actor_id,action,old_data,new_data,created_at').order('created_at', { ascending: false }).limit(40)
     const historyRows = latestLogs ?? []
     const historyPlantIds = [...new Set(historyRows.map(log => log.plant_id))]
     const historyActorIds = [...new Set(historyRows.map(log => log.actor_id).filter(Boolean))]
@@ -220,7 +225,7 @@ export default function App() {
       setHealthIssues(issues)
       setMapHealth({ invalid, oldPending, possibleDuplicates })
     }
-    const { data, error } = await supabase.from('plants').select('*').eq('status', 'pending').order('created_at', { ascending: true })
+    const { data, error } = await supabase.from('plants').select('id,common_name,scientific_name,description,category,latitude,longitude,location_type,status,created_at,created_by').eq('status', 'pending').order('created_at', { ascending: true }).limit(100)
     if (error) {
       setNotice('Não foi possível carregar a fila de moderação: ' + error.message)
     } else {
@@ -229,8 +234,8 @@ export default function App() {
       const ids = plants.map(plant => plant.id)
       if (ids.length) {
         const [{ data: photos }, { data: logs }] = await Promise.all([
-          supabase.from('plant_photos').select('*').in('plant_id', ids).order('created_at', { ascending: true }),
-          supabase.from('plant_audit_log').select('*').in('plant_id', ids).order('created_at', { ascending: false })
+          supabase.from('plant_photos').select('id,plant_id,storage_path,caption,status,created_at,uploaded_by').in('plant_id', ids).order('created_at', { ascending: true }),
+          supabase.from('plant_audit_log').select('id,plant_id,actor_id,action,old_data,new_data,created_at').in('plant_id', ids).order('created_at', { ascending: false }).limit(300)
         ])
         const photoGroups = {}
         ;(photos ?? []).forEach(photo => { (photoGroups[photo.plant_id] ||= []).push(photo) })
@@ -314,13 +319,29 @@ export default function App() {
     setPendingPlants(items => items.filter(item => item.id !== plant.id))
     if (status === 'approved') loadPlants()
   }
-  async function loadPlants() {
-    if (!supabaseReady) return
-    setLoading(true)
-    const { data, error } = await supabase.from('plants').select('*').eq('status', 'approved').order('created_at', { ascending: false })
-    if (error) setNotice('Não foi possível carregar as plantas: ' + error.message)
-    else setPlants(data ?? [])
+  async function loadPlants(append = false) {
+    if (!supabaseReady || (append && (!hasMorePlants || loadingMorePlants))) return
+    const pageSize = 200
+    const offset = append ? plants.length : 0
+    if (append) setLoadingMorePlants(true)
+    else setLoading(true)
+
+    const { data, error } = await supabase
+      .from('plants')
+      .select('id,common_name,scientific_name,description,category,latitude,longitude,created_at')
+      .eq('status', 'approved')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + pageSize - 1)
+
+    if (error) {
+      setNotice('Não foi possível carregar as plantas: ' + error.message)
+    } else {
+      const rows = data ?? []
+      setPlants(current => append ? [...current, ...rows] : rows)
+      setHasMorePlants(rows.length === pageSize)
+    }
     setLoading(false)
+    setLoadingMorePlants(false)
   }
 
   async function signInWithGoogle() {
@@ -469,7 +490,6 @@ export default function App() {
       plant_id: plant.id, confirmed_by: user.id, notes: 'Confirmação registrada pelo mapa'
     })
     setNotice(error ? 'Não foi possível confirmar: ' + error.message : 'Confirmação registrada. Obrigado!')
-    if (!error) loadPlants()
   }
 
   function distanceKm(a, b) {
@@ -559,12 +579,13 @@ export default function App() {
             </MapContainer>
             <div className="map-hint"><MapPin size={15}/> {selectingLocation ? 'Toque no ponto exato da planta para continuar' : 'Use o mapa para explorar e localizar plantas'}</div>
           </div>
-          <div className="map-footer"><span><span className="dot"/> {loading ? 'Carregando...' : visiblePlants.length + ' plantas aprovadas'}</span><span><ShieldCheck size={15}/> Publicações passam por moderação</span></div>
+          <div className="map-footer"><span><span className="dot"/> {loading ? 'Carregando...' : plants.length + ' plantas carregadas'}</span><span><ShieldCheck size={15}/> Publicações passam por moderação</span></div>
+          {hasMorePlants && <div className="map-load-more"><button className="secondary" type="button" onClick={() => loadPlants(true)} disabled={loadingMorePlants}>{loadingMorePlants ? 'Carregando...' : 'Carregar mais plantas'}</button></div>}
         </section>
 
         <section className="info-strip"><div><LocateFixed/><strong>Localização colaborativa</strong><p>Marque o ponto no mapa ou use sua localização.</p></div><div><Camera/><strong>Fotos e registros</strong><p>Ajude a comunidade a reconhecer cada espécie.</p></div><div><ShieldCheck/><strong>Conteúdo revisado</strong><p>Novos cadastros aguardam aprovação.</p></div></section>
       </main>
-      <footer>MAPA DAS ERVAS VIVAS <span>Feito para compartilhar conhecimento e preservar a natureza.</span><small className="app-version">Versão 0.2.0</small></footer>
+      <footer>MAPA DAS ERVAS VIVAS <span>Feito para compartilhar conhecimento e preservar a natureza.</span><small className="app-version">Versão 0.2.1</small></footer>
 
       {reportTarget && <div className="modal-backdrop" onClick={() => { if (!submittingReport) setReportTarget(null) }}><form className="modal" onSubmit={submitPlantReport} onClick={e => e.stopPropagation()}><button type="button" className="close" onClick={() => setReportTarget(null)} disabled={submittingReport}>×</button><span className="eyebrow">CONTRIBUIÇÃO DA COMUNIDADE</span><h2>Denunciar publicação</h2><p className="form-help">Sua denúncia será enviada em privado para a equipe de moderação. Use este recurso para sinalizar problemas reais no registro.</p><strong className="report-form-plant">{reportTarget.common_name}</strong><label>Motivo<select value={reportReason} onChange={e => setReportReason(e.target.value)}><option value="informacao incorreta">Informação incorreta</option><option value="localizacao incorreta">Localização incorreta</option><option value="duplicidade">Publicação duplicada</option><option value="conteudo inadequado">Conteúdo inadequado</option><option value="risco ambiental">Risco ambiental ou acesso indevido</option><option value="outro">Outro motivo</option></select></label><label>Detalhes (opcional)<textarea value={reportDetails} onChange={e => setReportDetails(e.target.value)} maxLength={2000} placeholder="Explique o que precisa ser verificado..."/></label><button className="primary submit" type="submit" disabled={submittingReport}>{submittingReport ? 'Enviando...' : 'Enviar denúncia'}</button></form></div>}
 
