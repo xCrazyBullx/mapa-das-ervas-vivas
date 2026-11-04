@@ -4,13 +4,16 @@ import L from 'leaflet'
 import { supabase, supabaseReady } from './supabase'
 import { Leaf, MapPin, Plus, Search, LogIn, LogOut, ShieldCheck, Camera, LocateFixed, AlertCircle, Chrome, Bell, Check } from 'lucide-react'
 
-const markerIcon = L.divIcon({
-  className: 'plant-map-marker',
-  html: '<span class="plant-map-marker-pin"><span></span></span>',
-  iconSize: [30, 38],
-  iconAnchor: [15, 34],
-  popupAnchor: [0, -34],
-})
+function createPlantMarkerIcon(category) {
+  const safeCategory = ['arvore', 'erva', 'flor', 'frutifera', 'arbusto'].includes(category) ? category : 'outra'
+  return L.divIcon({
+    className: 'plant-map-marker plant-map-marker-' + safeCategory,
+    html: '<span class="plant-map-marker-pin"><span></span></span>',
+    iconSize: [30, 38],
+    iconAnchor: [15, 34],
+    popupAnchor: [0, -34],
+  })
+}
 const visitorIcon = L.divIcon({
   className: 'visitor-map-marker',
   html: '<span class="visitor-map-marker-pulse"><span></span></span>',
@@ -438,7 +441,7 @@ export default function App() {
     .map(p => ({ ...p, distance: visitorLocation ? distanceKm(visitorLocation, { lat: Number(p.latitude), lng: Number(p.longitude) }) : null }))
     .sort((a, b) => visitorLocation ? a.distance - b.distance : 0)
   const filteredAudit = recentAudit.filter(log => (auditFilter === 'all' || log.action === auditFilter) && (log.plantName + ' ' + log.actorName + ' ' + (log.new_data?.moderation_note || '')).toLowerCase().includes(auditSearch.toLowerCase()))
-  const categories = [{ value: 'todas', label: 'Todas' }, { value: 'arvore', label: 'Árvores' }, { value: 'erva', label: 'Ervas' }, { value: 'flor', label: 'Flores' }, { value: 'frutifera', label: 'Frutíferas' }, { value: 'arbusto', label: 'Arbustos' }, { value: 'outra', label: 'Outras' }]
+  const categories = [{ value: 'todas', label: 'Todas', color: '#dce7dc' }, { value: 'arvore', label: 'Árvores', color: '#b9d8b8' }, { value: 'erva', label: 'Ervas', color: '#c5dfd5' }, { value: 'flor', label: 'Flores', color: '#f0cbd8' }, { value: 'frutifera', label: 'Frutíferas', color: '#f2d2b8' }, { value: 'arbusto', label: 'Arbustos', color: '#d8cbed' }, { value: 'outra', label: 'Outras', color: '#e5dfc9' }]
 
   return (
     <div className="app-shell">
@@ -501,12 +504,12 @@ export default function App() {
           <div className="map-heading"><div><span className="eyebrow">EXPLORAR</span><h2>Explore a natureza ao seu redor</h2></div><label className="search"><Search size={17}/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Busque por nome, espécie, erva, flor ou árvore..."/></label></div>
           {visitorLocation && <div className="location-nearby-note"><LocateFixed size={15}/> Mostrando plantas mais próximas de você. <button type="button" onClick={() => { setVisitorLocation(null); setLocationStatus('idle') }}>Desativar proximidade</button></div>}
           {!visitorLocation && locationStatus !== 'requesting' && <div className="location-nearby-note"><LocateFixed size={15}/>{locationStatus === 'denied' ? 'Localização não autorizada.' : locationStatus === 'unavailable' ? 'Não foi possível obter sua localização.' : 'Ative sua localização para encontrar plantas próximas.'}<button type="button" onClick={requestVisitorLocation}>Usar minha localização</button></div>}
-          <div className="category-filters" aria-label="Filtrar por categoria">{categories.map(category => <button key={category.value} type="button" className={selectedCategory === category.value ? 'active' : ''} onClick={() => setSelectedCategory(category.value)}>{category.label}</button>)}</div>
+          <div className="category-filters" aria-label="Filtrar por categoria">{categories.map(category => <button key={category.value} type="button" className={'category-filter category-filter-' + category.value + (selectedCategory === category.value ? ' active' : '')} onClick={() => setSelectedCategory(category.value)}><span className="category-color-dot" aria-hidden="true" />{category.label}</button>)}</div>
           <div className="map-wrap">
             <MapContainer center={visitorLocation ? [visitorLocation.lat, visitorLocation.lng] : [-23.3103, -51.1628]} zoom={visitorLocation ? 14 : 12} scrollWheelZoom={true} className="map">
               <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
               <SelectLocation onSelect={handleMapSelection}/><RecenterMap position={selected || visitorLocation}/>
-              {visiblePlants.map(p => <Marker key={p.id} position={[p.latitude, p.longitude]} icon={markerIcon}><Popup><strong>{p.common_name}</strong><p>{p.description || 'Sem descrição.'}</p><small>{p.scientific_name || ''}</small><p><button className="popup-action" onClick={() => confirmPlant(p)}>Confirmar presença</button> <button className="popup-report-action" onClick={() => { if (!user) { setAuthMode('signin'); setNotice('Entre na sua conta para denunciar uma publicação.') } else { setReportTarget(p); setReportDetails('') } }}>Denunciar</button></p><a target="_blank" rel="noreferrer" href={'https://www.google.com/maps?q=' + p.latitude + ',' + p.longitude}>Abrir no Google Maps</a></Popup></Marker>)}
+              {visiblePlants.map(p => <Marker key={p.id} position={[p.latitude, p.longitude]} icon={createPlantMarkerIcon(p.category)}><Popup><strong>{p.common_name}</strong><p>{p.description || 'Sem descrição.'}</p><small>{p.scientific_name || ''}</small><p><button className="popup-action" onClick={() => confirmPlant(p)}>Confirmar presença</button> <button className="popup-report-action" onClick={() => { if (!user) { setAuthMode('signin'); setNotice('Entre na sua conta para denunciar uma publicação.') } else { setReportTarget(p); setReportDetails('') } }}>Denunciar</button></p><a target="_blank" rel="noreferrer" href={'https://www.google.com/maps?q=' + p.latitude + ',' + p.longitude}>Abrir no Google Maps</a></Popup></Marker>)}
               {visitorLocation && <Marker position={[visitorLocation.lat, visitorLocation.lng]} icon={visitorIcon}><Popup>Você está aqui (localização visível apenas neste navegador)</Popup></Marker>}
               {selected && <Marker position={[selected.lat, selected.lng]} icon={markerIcon}><Popup>Local escolhido para novo cadastro</Popup></Marker>}
             </MapContainer>
