@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import { supabase, supabaseReady } from './supabase'
-import { Leaf, MapPin, Plus, Search, LogIn, LogOut, ShieldCheck, Camera, LocateFixed, AlertCircle, Chrome } from 'lucide-react'
+import { Leaf, MapPin, Plus, Search, LogIn, LogOut, ShieldCheck, Camera, LocateFixed, AlertCircle, Chrome, Bell, Check } from 'lucide-react'
 
 const markerIcon = new L.Icon({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -29,6 +29,8 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState('todas')
   const [user, setUser] = useState(null)
   const [userRole, setUserRole] = useState(null)
+  const [notifications, setNotifications] = useState([])
+  const [showNotifications, setShowNotifications] = useState(false)
   const [showAdmin, setShowAdmin] = useState(false)
   const [pendingPlants, setPendingPlants] = useState([])
   const [adminLoading, setAdminLoading] = useState(false)
@@ -64,6 +66,31 @@ export default function App() {
     }
     loadRole()
     return () => { active = false }
+  }, [user])
+
+  async function loadNotifications() {
+    if (!user || !supabaseReady) return
+    const { data, error } = await supabase.from('user_notifications').select('*').order('created_at', { ascending: false }).limit(30)
+    if (!error) setNotifications(data ?? [])
+  }
+
+  async function markNotificationRead(notification) {
+    if (!notification.read_at) {
+      const readAt = new Date().toISOString()
+      const { error } = await supabase.from('user_notifications').update({ read_at: readAt }).eq('id', notification.id)
+      if (!error) setNotifications(items => items.map(item => item.id === notification.id ? { ...item, read_at: readAt } : item))
+    }
+  }
+
+  useEffect(() => {
+    if (!user || !supabaseReady) { setNotifications([]); return }
+    loadNotifications()
+    const channel = supabase.channel('user-notifications-' + user.id)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'user_notifications', filter: 'user_id=eq.' + user.id }, payload => {
+        setNotifications(items => [payload.new, ...items].slice(0, 30))
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
   }, [user])
 
   async function loadPendingPlants() {
@@ -209,9 +236,16 @@ export default function App() {
       <header className="topbar">
         <a className="brand" href="#"><span className="brand-mark"><Leaf size={22}/></span><span><strong>Ervas Vivas</strong><small>MAPA COLABORATIVO</small></span></a>
         <div className="account-actions">
-          {user ? <>{['admin', 'moderator'].includes(userRole) && <button className="ghost moderation-nav" onClick={() => { setShowAdmin(v => !v); if (!showAdmin) loadPendingPlants() }}><ShieldCheck size={17}/> {showAdmin ? 'Voltar ao mapa' : 'Moderação'}</button>}<button className="ghost" onClick={() => supabase.auth.signOut()}><LogOut size={17}/> Sair</button></> : <><button className="ghost" onClick={() => setAuthMode('signup')}>Criar conta</button><button className="login" onClick={() => setAuthMode('signin')}><LogIn size={16}/> Entrar</button></>}
+          {user ? <><button className="ghost notification-nav" onClick={() => { setShowNotifications(v => !v); if (!showNotifications) loadNotifications() }} aria-label="Notificações"><Bell size={17}/> Avisos{notifications.some(item => !item.read_at) && <span className="notification-count">{notifications.filter(item => !item.read_at).length}</span>}</button>{['admin', 'moderator'].includes(userRole) && <button className="ghost moderation-nav" onClick={() => { setShowAdmin(v => !v); if (!showAdmin) loadPendingPlants() }}><ShieldCheck size={17}/> {showAdmin ? 'Voltar ao mapa' : 'Moderação'}</button>}<button className="ghost" onClick={() => supabase.auth.signOut()}><LogOut size={17}/> Sair</button></> : <><button className="ghost" onClick={() => setAuthMode('signup')}>Criar conta</button><button className="login" onClick={() => setAuthMode('signin')}><LogIn size={16}/> Entrar</button></>}
         </div>
       </header>
+      {showNotifications && user && <section className="notifications-panel">
+        <div className="notifications-heading"><strong>Notificações</strong><button type="button" onClick={loadNotifications}>Atualizar</button></div>
+        {notifications.length === 0 ? <p className="notifications-empty">Você ainda não tem avisos.</p> : notifications.map(item => <article className={'notification-item ' + (item.read_at ? 'is-read' : 'is-unread')} key={item.id}>
+          <div><strong>{item.title}</strong><p>{item.message}</p><small>{new Date(item.created_at).toLocaleString('pt-BR')}</small></div>
+          {!item.read_at && <button type="button" aria-label="Marcar como lida" onClick={() => markNotificationRead(item)}><Check size={16}/></button>}
+        </article>)}
+      </section>}
 
       <main>
         <section className="intro">
