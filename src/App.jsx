@@ -408,6 +408,9 @@ export default function App() {
     if (!user) { setNotice('Entre na sua conta para enviar uma planta.'); return }
     if (!selected) { setNotice('Toque no mapa para marcar a localização da planta.'); return }
     if (photos.length > 3) { setNotice('Envie no máximo 3 fotos por publicação.'); return }
+    let compressedPhotos = []
+    try { compressedPhotos = await Promise.all(photos.map(compressPlantPhoto)) }
+    catch (error) { setNotice('Não foi possível preparar as fotos: ' + error.message); return }
     const payload = {
       common_name: form.name.trim(),
       scientific_name: form.scientific_name.trim() || null,
@@ -423,7 +426,6 @@ export default function App() {
     if (error) { setNotice('Erro ao enviar: ' + error.message); return }
     if (photos.length && data?.id) {
       try {
-        const compressedPhotos = await Promise.all(photos.map(compressPlantPhoto))
         for (const [index, photo] of compressedPhotos.entries()) {
           const path = user.id + '/' + data.id + '/' + Date.now() + '-' + index + '.webp'
           const upload = await supabase.storage.from('plant-photos').upload(path, photo, { contentType: 'image/webp', upsert: false })
