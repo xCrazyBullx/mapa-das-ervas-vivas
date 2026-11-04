@@ -1,5 +1,19 @@
 # Histórico de versões — Mapa das Ervas Vivas
 
+## [0.3.4] — 2026-11-03
+
+**Resumo:** atualiza a linguagem do botão de contribuição e melhora o alinhamento do nome com a marca no cabeçalho.
+
+### Alterado
+- Botão principal passa a usar “Registrar descoberta”, reforçando a proposta colaborativa do mapa.
+- Marca e nome “Ervas Vivas” passam a compartilhar alinhamento vertical central, com dimensões ajustadas para desktop e celular.
+
+### Validação
+- Alterações registradas na branch main.
+- Build, deploy e conferência visual em dispositivos: pendentes.
+
+---
+
 ## [0.3.3] — 2026-11-03
 
 **Resumo:** simplifica a administração de contas, concentrando busca, filtros e edição em uma tela própria de Usuários.
@@ -72,7 +86,7 @@ As versões seguem o padrão SemVer: MAJOR.MINOR.PATCH.
 - **MINOR**: nova funcionalidade ou melhoria relevante, mantendo compatibilidade.
 - **PATCH**: correção de bug, ajuste pequeno ou melhoria interna.
 
-Enquanto o projeto estiver antes da versão 1.0.0, a API e as funcionalidades ainda podem mudar. A versão atual é 0.3.3.
+Enquanto o projeto estiver antes da versão 1.0.0, a API e as funcionalidades ainda podem mudar. A versão atual é 0.3.4.
 
 ## [0.2.1] — 2026-11-03
 
