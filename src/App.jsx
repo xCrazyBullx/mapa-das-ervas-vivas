@@ -20,11 +20,12 @@ export default function App() {
   const [plants, setPlants] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState('todas')
   const [user, setUser] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [selected, setSelected] = useState(null)
   const [notice, setNotice] = useState('')
-  const [form, setForm] = useState({ name: '', scientific_name: '', description: '', location_type: 'publico' })
+  const [form, setForm] = useState({ name: '', scientific_name: '', description: '', category: 'erva', location_type: 'publico' })
   const [photo, setPhoto] = useState(null)
 
   useEffect(() => {
@@ -70,6 +71,7 @@ export default function App() {
       common_name: form.name.trim(),
       scientific_name: form.scientific_name.trim() || null,
       description: form.description.trim() || null,
+      category: form.category,
       latitude: selected.lat,
       longitude: selected.lng,
       location_type: form.location_type,
@@ -92,7 +94,7 @@ export default function App() {
     }
     setNotice('Cadastro enviado para análise de um moderador. Ele ainda não está público.')
     setShowForm(false)
-    setForm({ name: '', scientific_name: '', description: '', location_type: 'publico' })
+    setForm({ name: '', scientific_name: '', description: '', category: 'erva', location_type: 'publico' })
     setPhoto(null)
     setSelected(null)
   }
@@ -106,7 +108,8 @@ export default function App() {
     if (!error) loadPlants()
   }
 
-  const visiblePlants = plants.filter(p => [p.common_name, p.scientific_name, p.description].filter(Boolean).join(' ').toLowerCase().includes(search.toLowerCase()))
+  const visiblePlants = plants.filter(p => [p.common_name, p.scientific_name, p.description].filter(Boolean).join(' ').toLowerCase().includes(search.toLowerCase()) && (selectedCategory === 'todas' || p.category === selectedCategory))
+  const categories = [{ value: 'todas', label: 'Todas' }, { value: 'arvore', label: 'Árvores' }, { value: 'erva', label: 'Ervas' }, { value: 'flor', label: 'Flores' }, { value: 'frutifera', label: 'Frutíferas' }, { value: 'arbusto', label: 'Arbustos' }, { value: 'outra', label: 'Outras' }]
 
   return (
     <div className="app-shell">
@@ -127,7 +130,8 @@ export default function App() {
         {notice && <div className="notice"><span>{notice}</span><button onClick={() => setNotice('')}>×</button></div>}
 
         <section className="map-section">
-          <div className="map-heading"><div><span className="eyebrow">EXPLORAR</span><h2>Plantas perto de você</h2></div><label className="search"><Search size={17}/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar uma planta..."/></label></div>
+          <div className="map-heading"><div><span className="eyebrow">EXPLORAR</span><h2>Explore a natureza ao seu redor</h2></div><label className="search"><Search size={17}/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Busque por nome, espécie, erva, flor ou árvore..."/></label></div>
+          <div className="category-filters" aria-label="Filtrar por categoria">{categories.map(category => <button key={category.value} type="button" className={selectedCategory === category.value ? 'active' : ''} onClick={() => setSelectedCategory(category.value)}>{category.label}</button>)}</div>
           <div className="map-wrap">
             <MapContainer center={[-23.3103, -51.1628]} zoom={12} scrollWheelZoom={true} className="map">
               <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
@@ -144,7 +148,7 @@ export default function App() {
       </main>
       <footer>MAPA DAS ERVAS VIVAS <span>Feito para compartilhar conhecimento e preservar a natureza.</span></footer>
 
-      {showForm && <div className="modal-backdrop" onClick={() => setShowForm(false)}><form className="modal" onSubmit={submitPlant} onClick={e => e.stopPropagation()}><button type="button" className="close" onClick={() => setShowForm(false)}>×</button><span className="eyebrow">NOVO REGISTRO</span><h2>Cadastrar uma planta</h2><p className="form-help">Preencha os dados e toque no mapa para marcar o local. O cadastro ficará pendente até a revisão.</p><label>Nome popular<input required value={form.name} onChange={e => setForm({...form, name:e.target.value})} placeholder="Ex.: Alecrim"/></label><label>Nome científico (opcional)<input value={form.scientific_name} onChange={e => setForm({...form, scientific_name:e.target.value})} placeholder="Ex.: Salvia rosmarinus"/></label><label>Descrição<textarea value={form.description} onChange={e => setForm({...form, description:e.target.value})} placeholder="Conte como identificar a planta..."/></label><label>Tipo de local<select value={form.location_type} onChange={e => setForm({...form, location_type:e.target.value})}><option value="public">Local público</option><option value="private">Propriedade particular (com autorização)</option><option value="approximate">Localização aproximada</option><option value="preservation">Área de preservação</option></select></label><label className="file-label"><Camera size={17}/> Foto (opcional)<input type="file" accept="image/*" onChange={e => setPhoto(e.target.files?.[0] || null)}/></label><div className="selected-location">{selected ? 'Ponto marcado: ' + selected.lat.toFixed(5) + ', ' + selected.lng.toFixed(5) : 'Nenhum ponto marcado. Feche o formulário e toque no mapa.'}</div><button className="primary submit" type="submit">Enviar para aprovação</button></form></div>}
+      {showForm && <div className="modal-backdrop" onClick={() => setShowForm(false)}><form className="modal" onSubmit={submitPlant} onClick={e => e.stopPropagation()}><button type="button" className="close" onClick={() => setShowForm(false)}>×</button><span className="eyebrow">NOVO REGISTRO</span><h2>Cadastrar uma planta</h2><p className="form-help">Preencha os dados e toque no mapa para marcar o local. O cadastro ficará pendente até a revisão.</p><label>Nome popular<input required value={form.name} onChange={e => setForm({...form, name:e.target.value})} placeholder="Ex.: Alecrim"/></label><label>Nome científico (opcional)<input value={form.scientific_name} onChange={e => setForm({...form, scientific_name:e.target.value})} placeholder="Ex.: Salvia rosmarinus"/></label><label>Categoria<select value={form.category} onChange={e => setForm({...form, category:e.target.value})}><option value="arvore">Árvore</option><option value="erva">Erva</option><option value="flor">Flor</option><option value="frutifera">Frutífera</option><option value="arbusto">Arbusto</option><option value="outra">Outra</option></select></label><label>Descrição<textarea value={form.description} onChange={e => setForm({...form, description:e.target.value})} placeholder="Conte como identificar a planta..."/></label><label>Tipo de local<select value={form.location_type} onChange={e => setForm({...form, location_type:e.target.value})}><option value="publico">Local público</option><option value="particular">Propriedade particular (com autorização)</option><option value="aproximado">Localização aproximada</option><option value="preservacao">Área de preservação</option></select></label><label className="file-label"><Camera size={17}/> Foto (opcional)<input type="file" accept="image/*" onChange={e => setPhoto(e.target.files?.[0] || null)}/></label><div className="selected-location">{selected ? 'Ponto marcado: ' + selected.lat.toFixed(5) + ', ' + selected.lng.toFixed(5) : 'Nenhum ponto marcado. Feche o formulário e toque no mapa.'}</div><button className="primary submit" type="submit">Enviar para aprovação</button></form></div>}
     </div>
   )
 }
